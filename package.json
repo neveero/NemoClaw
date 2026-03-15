@@ -20,7 +20,8 @@
     "nemoclaw-blueprint/",
     "scripts/",
     ".jensenclaw/",
-    "Dockerfile"
+    "Dockerfile",
+    ".dockerignore"
   ],
   "engines": {
     "node": ">=20.0.0"

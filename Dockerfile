@@ -22,12 +22,14 @@ RUN npm install -g openclaw@2026.3.11
 RUN pip3 install --break-system-packages pyyaml
 
 # Copy our plugin and blueprint into the sandbox
-COPY nemoclaw/ /opt/nemoclaw/
+COPY nemoclaw/dist/ /opt/nemoclaw/dist/
+COPY nemoclaw/openclaw.plugin.json /opt/nemoclaw/
+COPY nemoclaw/package.json /opt/nemoclaw/
 COPY nemoclaw-blueprint/ /opt/nemoclaw-blueprint/
 
-# Build the TS plugin inside the container
+# Install runtime dependencies only (no devDependencies, no build step)
 WORKDIR /opt/nemoclaw
-RUN npm install && rm -rf dist && npx tsc
+RUN npm install --omit=dev
 
 # Set up blueprint for local resolution
 RUN mkdir -p /sandbox/.nemoclaw/blueprints/0.1.0 \
