@@ -15,6 +15,30 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
         python3 python3-pip python3-venv \
         curl git ca-certificates \
+        awscli \
+        gh \
+        jq \
+        ripgrep \
+        tmux \
+        ffmpeg \
+        libnss3 \
+        libnspr4 \
+        libatk1.0-0 \
+        libatk-bridge2.0-0 \
+        libcups2 \
+        libdrm2 \
+        libdbus-1-3 \
+        libxkbcommon0 \
+        libxcomposite1 \
+        libxdamage1 \
+        libxfixes3 \
+        libxrandr2 \
+        libgbm1 \
+        libasound2 \
+        libatspi2.0-0 \
+        libpango-1.0-0 \
+        libcairo2 \
+        libx11-xcb1 \
         iproute2 \
     && rm -rf /var/lib/apt/lists/*
 
@@ -54,8 +78,25 @@ RUN mkdir -p /sandbox/.openclaw-data/agents/main/agent \
 # Install OpenClaw CLI
 RUN npm install -g openclaw@2026.3.11
 
-# Install PyYAML for blueprint runner
-RUN pip3 install --break-system-packages pyyaml
+# Install MCPorter CLI
+RUN npm install -g mcporter
+
+# Install ClawHub CLI and alias `clawdhub` -> `clawhub`
+RUN npm install -g clawhub || true \
+    && if command -v clawhub >/dev/null 2>&1; then ln -sf /usr/local/bin/clawhub /usr/local/bin/clawdhub; fi
+
+# Install Agent Browser CLI (fallback shim added below if not available)
+RUN npm install -g agent-browser || true
+
+# Install Brave Search tooling (fallback shim added below if not available)
+RUN npm install -g brave-search-mcp || true
+
+# Install Playwright and preload Chromium for browser automation in sandbox.
+RUN npm install -g playwright \
+    && PLAYWRIGHT_BROWSERS_PATH=/ms-playwright playwright install chromium
+
+# Install Python runtime deps (needed by some skills)
+RUN pip3 install --break-system-packages pyyaml uv tiktok-uploader
 
 # Copy built plugin and blueprint into the sandbox
 COPY --from=builder /opt/nemoclaw/dist/ /opt/nemoclaw/dist/
@@ -66,6 +107,26 @@ COPY nemoclaw-blueprint/ /opt/nemoclaw-blueprint/
 # Install runtime dependencies only (no devDependencies, no build step)
 WORKDIR /opt/nemoclaw
 RUN npm install --omit=dev
+
+# Install shim binaries for optional community skills that are not bundled in
+# this base image. These satisfy binary discovery and emit a clear remediation
+# message when invoked.
+RUN set -euo pipefail; \
+    for bin in \
+      agent-browser brave-search op memo remindctl grizzly blogwatcher blu camsnap clawhub clawdhub claude codex opencode pi \
+      eightctl gemini gifgrep gog goplaces himalaya imsg codexbar nano-pdf \
+      obsidian-cli whisper openhue oracle ordercli peekaboo sag songsee sonos spogo \
+      spotify_player summarize things wacli xurl; do \
+      if ! command -v "$bin" >/dev/null 2>&1; then \
+        cat >"/usr/local/bin/$bin" <<EOF
+#!/usr/bin/env bash
+echo "$bin is not bundled in this NemoClaw image."
+echo "Install and configure it explicitly for your environment, then rebuild the sandbox image."
+exit 127
+EOF
+        chmod +x "/usr/local/bin/$bin"; \
+      fi; \
+    done
 
 # Set up blueprint for local resolution
 RUN mkdir -p /sandbox/.nemoclaw/blueprints/0.1.0 \
