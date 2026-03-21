@@ -82,12 +82,12 @@ RUN set -euo pipefail; \
       obsidian-cli whisper openhue oracle ordercli peekaboo sag songsee sonos spogo \
       spotify_player summarize things wacli xurl; do \
       if ! command -v "$bin" >/dev/null 2>&1; then \
-        cat >"/usr/local/bin/$bin" <<EOF
-#!/usr/bin/env bash
-echo "$bin is not bundled in this NemoClaw image."
-echo "Install and configure it explicitly for your environment, then rebuild the sandbox image."
-exit 127
-EOF
+        printf '%s\n' \
+          '#!/usr/bin/env bash' \
+          "echo \"$bin is not bundled in this NemoClaw image.\"" \
+          'echo "Install and configure it explicitly for your environment, then rebuild the sandbox image."' \
+          'exit 127' \
+          >"/usr/local/bin/$bin"; \
         chmod +x "/usr/local/bin/$bin"; \
       fi; \
     done
