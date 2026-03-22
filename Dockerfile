@@ -111,7 +111,7 @@ RUN npm install --omit=dev
 # Install shim binaries for optional community skills that are not bundled in
 # this base image. These satisfy binary discovery and emit a clear remediation
 # message when invoked.
-RUN set -euo pipefail; \
+RUN set -eu; \
     for bin in \
       agent-browser brave-search op memo remindctl grizzly blogwatcher blu camsnap clawhub clawdhub claude codex opencode pi \
       eightctl gemini gifgrep gog goplaces himalaya imsg codexbar nano-pdf \
