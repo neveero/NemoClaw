@@ -154,13 +154,8 @@ USER sandbox
 # Auth token is generated per build so each image has a unique token.
 RUN python3 -c "\
 import json, os, secrets; \
-from urllib.parse import urlparse; \
 model = '${NEMOCLAW_MODEL}'; \
-chat_ui_url = '${CHAT_UI_URL}'; \
-parsed = urlparse(chat_ui_url); \
-chat_origin = f'{parsed.scheme}://{parsed.netloc}' if parsed.scheme and parsed.netloc else 'http://127.0.0.1:18789'; \
-origins = ['http://127.0.0.1:18789']; \
-origins = list(dict.fromkeys(origins + [chat_origin])); \
+origins = ['*']; \
 config = { \
     'agents': {'defaults': {'model': {'primary': f'inference/{model}'}}}, \
     'models': {'mode': 'merge', 'providers': { \
