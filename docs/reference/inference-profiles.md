@@ -2,7 +2,9 @@
 title:
   page: "NemoClaw Inference Profiles"
   nav: "Inference Profiles"
-description: "Configuration reference for NemoClaw routed inference providers."
+description:
+  main: "Configuration reference for NemoClaw routed inference providers."
+  agent: "Documents configuration options for NemoClaw routed inference providers. Use when configuring inference profiles, looking up provider routing settings, or reviewing available LLM providers."
 keywords: ["nemoclaw inference profiles", "nemoclaw provider routing"]
 topics: ["generative_ai", "ai_agents"]
 tags: ["openclaw", "openshell", "inference_routing", "llms"]
@@ -75,6 +77,16 @@ Ollama gets additional onboarding help:
 - it pulls the selected model
 - it warms the model
 - it validates the model before continuing
+
+On Linux hosts that run NemoClaw with Docker, the sandbox reaches Ollama through `http://host.openshell.internal:11434`, not the host shell's `localhost` socket.
+If Ollama is already running, make sure it listens on `0.0.0.0:11434` instead of `127.0.0.1:11434`.
+Run the following command to start Ollama with that bind address.
+
+```console
+$ OLLAMA_HOST=0.0.0.0:11434 ollama serve
+```
+
+If Ollama only binds loopback, NemoClaw can detect it on the host, but the sandbox-side validation step fails because containers cannot reach it.
 
 ## Experimental Local Providers
 
