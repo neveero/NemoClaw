@@ -21,16 +21,101 @@ RUN npm install && npm run build
 # Stage 2: Runtime image — pull cached base from GHCR
 FROM ${BASE_IMAGE}
 
-# Harden: remove unnecessary build tools and network probes from base image (#830)
+ENV DEBIAN_FRONTEND=noninteractive
+
 RUN (apt-get remove --purge -y gcc gcc-12 g++ g++-12 cpp cpp-12 make \
-        netcat-openbsd netcat-traditional ncat 2>/dev/null || true) \
-    && apt-get autoremove --purge -y \
+            netcat-openbsd netcat-traditional ncat 2>/dev/null || true) \
+      && apt-get autoremove --purge -y \
+      && apt-get update && apt-get install -y --no-install-recommends \
+        python3 python3-pip python3-venv \
+        curl git ca-certificates \
+        awscli \
+        gh \
+        jq \
+        ripgrep \
+        tmux \
+        ffmpeg \
+        libnss3 \
+        libnspr4 \
+        libatk1.0-0 \
+        libatk-bridge2.0-0 \
+        libcups2 \
+        libdrm2 \
+        libdbus-1-3 \
+        libxkbcommon0 \
+        libxcomposite1 \
+        libxdamage1 \
+        libxfixes3 \
+        libxrandr2 \
+        libgbm1 \
+        libasound2 \
+        libatspi2.0-0 \
+        libpango-1.0-0 \
+        libcairo2 \
+        libx11-xcb1 \
+        iproute2 \
     && rm -rf /var/lib/apt/lists/*
+
+# Create sandbox user (matches OpenShell convention)
+RUN groupadd -r sandbox && useradd -r -g sandbox -d /sandbox -s /bin/bash sandbox \
+    && mkdir -p /sandbox/.nemoclaw \
+    && chown -R sandbox:sandbox /sandbox
+
+# Split .openclaw into immutable config dir + writable state dir.
+# The policy makes /sandbox/.openclaw read-only via Landlock, so the agent
+# cannot modify openclaw.json, auth tokens, or CORS settings.  Writable
+# state (agents, plugins, etc.) lives in .openclaw-data, reached via symlinks.
+# Ref: https://github.com/NVIDIA/NemoClaw/issues/514
+RUN mkdir -p /sandbox/.openclaw-data/agents/main/agent \
+        /sandbox/.openclaw-data/extensions \
+        /sandbox/.openclaw-data/workspace \
+        /sandbox/.openclaw-data/skills \
+        /sandbox/.openclaw-data/hooks \
+        /sandbox/.openclaw-data/identity \
+        /sandbox/.openclaw-data/devices \
+        /sandbox/.openclaw-data/canvas \
+        /sandbox/.openclaw-data/cron \
+    && mkdir -p /sandbox/.openclaw \
+    && ln -s /sandbox/.openclaw-data/agents /sandbox/.openclaw/agents \
+    && ln -s /sandbox/.openclaw-data/extensions /sandbox/.openclaw/extensions \
+    && ln -s /sandbox/.openclaw-data/workspace /sandbox/.openclaw/workspace \
+    && ln -s /sandbox/.openclaw-data/skills /sandbox/.openclaw/skills \
+    && ln -s /sandbox/.openclaw-data/hooks /sandbox/.openclaw/hooks \
+    && ln -s /sandbox/.openclaw-data/identity /sandbox/.openclaw/identity \
+    && ln -s /sandbox/.openclaw-data/devices /sandbox/.openclaw/devices \
+    && ln -s /sandbox/.openclaw-data/canvas /sandbox/.openclaw/canvas \
+    && ln -s /sandbox/.openclaw-data/cron /sandbox/.openclaw/cron \
+    && touch /sandbox/.openclaw-data/update-check.json \
+    && ln -s /sandbox/.openclaw-data/update-check.json /sandbox/.openclaw/update-check.json \
+    && chown -R sandbox:sandbox /sandbox/.openclaw /sandbox/.openclaw-data
+
+# Install OpenClaw CLI
+RUN npm install -g openclaw@2026.3.11
+
+# Install MCPorter CLI
+RUN npm install -g mcporter
+
+# Install ClawHub CLI and alias `clawdhub` -> `clawhub`
+RUN npm install -g clawhub || true \
+    && if command -v clawhub >/dev/null 2>&1; then ln -sf /usr/local/bin/clawhub /usr/local/bin/clawdhub; fi
+
+# Install Agent Browser CLI (fallback shim added below if not available)
+RUN npm install -g agent-browser || true
+
+# Install Brave Search tooling (fallback shim added below if not available)
+RUN npm install -g brave-search-mcp || true
+
+# Install Playwright and preload Chromium for browser automation in sandbox.
+RUN npm install -g playwright \
+    && PLAYWRIGHT_BROWSERS_PATH=/ms-playwright playwright install chromium
+
+# Install Python runtime deps (needed by some skills)
+RUN pip3 install --break-system-packages pyyaml uv tiktok-uploader
 
 # Copy built plugin and blueprint into the sandbox
 COPY --from=builder /opt/nemoclaw/dist/ /opt/nemoclaw/dist/
 COPY nemoclaw/openclaw.plugin.json /opt/nemoclaw/
-COPY nemoclaw/package.json nemoclaw/package-lock.json /opt/nemoclaw/
+COPY nemoclaw/package.json /opt/nemoclaw/
 COPY nemoclaw-blueprint/ /opt/nemoclaw-blueprint/
 
 # Install runtime dependencies only (no devDependencies, no build step)
@@ -82,38 +167,36 @@ USER sandbox
 # Build args (NEMOCLAW_MODEL, CHAT_UI_URL) customize per deployment.
 # Auth token is generated per build so each image has a unique token.
 RUN python3 -c "\
-import base64, json, os, secrets; \
+import json, os, secrets; \
 from urllib.parse import urlparse; \
-model = os.environ['NEMOCLAW_MODEL']; \
-chat_ui_url = os.environ['CHAT_UI_URL']; \
-provider_key = os.environ['NEMOCLAW_PROVIDER_KEY']; \
-primary_model_ref = os.environ['NEMOCLAW_PRIMARY_MODEL_REF']; \
-inference_base_url = os.environ['NEMOCLAW_INFERENCE_BASE_URL']; \
-inference_api = os.environ['NEMOCLAW_INFERENCE_API']; \
-inference_compat = json.loads(base64.b64decode(os.environ['NEMOCLAW_INFERENCE_COMPAT_B64']).decode('utf-8')); \
+model = '${NEMOCLAW_MODEL}'; \
+chat_ui_url = '${CHAT_UI_URL}'; \
 parsed = urlparse(chat_ui_url); \
 chat_origin = f'{parsed.scheme}://{parsed.netloc}' if parsed.scheme and parsed.netloc else 'http://127.0.0.1:18789'; \
 origins = ['http://127.0.0.1:18789']; \
 origins = list(dict.fromkeys(origins + [chat_origin])); \
-disable_device_auth = os.environ.get('NEMOCLAW_DISABLE_DEVICE_AUTH', '') == '1'; \
-allow_insecure = parsed.scheme == 'http'; \
-providers = { \
-    provider_key: { \
-        'baseUrl': inference_base_url, \
-        'apiKey': 'unused', \
-        'api': inference_api, \
-        'models': [{**({'compat': inference_compat} if inference_compat else {}), 'id': model, 'name': primary_model_ref, 'reasoning': False, 'input': ['text'], 'cost': {'input': 0, 'output': 0, 'cacheRead': 0, 'cacheWrite': 0}, 'contextWindow': 131072, 'maxTokens': 4096}] \
-    } \
-}; \
 config = { \
-    'agents': {'defaults': {'model': {'primary': primary_model_ref}}}, \
-    'models': {'mode': 'merge', 'providers': providers}, \
+    'agents': {'defaults': {'model': {'primary': f'inference/{model}'}}}, \
+    'models': {'mode': 'merge', 'providers': { \
+        'nvidia': { \
+            'baseUrl': 'https://inference.local/v1', \
+            'apiKey': 'openshell-managed', \
+            'api': 'openai-completions', \
+            'models': [{'id': model.split('/')[-1], 'name': model, 'reasoning': False, 'input': ['text'], 'cost': {'input': 0, 'output': 0, 'cacheRead': 0, 'cacheWrite': 0}, 'contextWindow': 131072, 'maxTokens': 4096}] \
+        }, \
+        'inference': { \
+            'baseUrl': 'https://inference.local/v1', \
+            'apiKey': 'unused', \
+            'api': 'openai-completions', \
+            'models': [{'id': model, 'name': model, 'reasoning': False, 'input': ['text'], 'cost': {'input': 0, 'output': 0, 'cacheRead': 0, 'cacheWrite': 0}, 'contextWindow': 131072, 'maxTokens': 4096}] \
+        } \
+    }}, \
     'channels': {'defaults': {'configWrites': False}}, \
     'gateway': { \
         'mode': 'local', \
         'controlUi': { \
-            'allowInsecureAuth': allow_insecure, \
-            'dangerouslyDisableDeviceAuth': disable_device_auth, \
+            'allowInsecureAuth': True, \
+            'dangerouslyDisableDeviceAuth': True, \
             'allowedOrigins': origins, \
         }, \
         'trustedProxies': ['127.0.0.1', '::1'], \
@@ -142,8 +225,9 @@ RUN openclaw doctor --fix > /dev/null 2>&1 || true \
 USER root
 RUN chown root:root /sandbox/.openclaw \
     && find /sandbox/.openclaw -mindepth 1 -maxdepth 1 -exec chown -h root:root {} + \
-    && chmod 755 /sandbox/.openclaw \
+    && chmod 1777 /sandbox/.openclaw \
     && chmod 444 /sandbox/.openclaw/openclaw.json
+USER sandbox
 
 # Pin config hash at build time so the entrypoint can verify integrity.
 # Prevents the agent from creating a copy with a tampered config and
