@@ -33,6 +33,7 @@ const TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const NVIDIA_API_KEY = process.env.NVIDIA_API_KEY || "";
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY || "";
 const OPENAI_TRANSCRIPTION_MODEL = process.env.OPENAI_TRANSCRIPTION_MODEL || "whisper-1";
+const DEBUG_UPDATES = process.env.TELEGRAM_BRIDGE_DEBUG === "1";
 const SANDBOX = process.env.SANDBOX_NAME || "nemoclaw";
 try { validateName(SANDBOX, "SANDBOX_NAME"); } catch (e) { console.error(e.message); process.exit(1); }
 const ALLOWED_CHATS = parseAllowedChatIds(process.env.ALLOWED_CHAT_IDS);
@@ -199,12 +200,12 @@ function transcribeWithOpenAI(audioBuffer, filename = "voice.oga", mime = "audio
 }
 
 async function transcribeTelegramMessage(msg) {
-  const media = msg.voice || msg.audio;
+  const media = msg.voice || msg.audio || msg.video_note;
   if (!media?.file_id) {
     throw new Error("No voice/audio file found");
   }
   const { data, name } = await downloadTelegramFile(media.file_id);
-  const mime = msg.voice ? "audio/ogg" : "audio/mpeg";
+  const mime = msg.voice ? "audio/ogg" : msg.audio ? "audio/mpeg" : "video/mp4";
   return transcribeWithOpenAI(data, name, mime);
 }
 
@@ -285,8 +286,14 @@ async function poll() {
         const msg = update.message;
         if (!msg) continue;
         const isText = typeof msg.text === "string" && msg.text.trim().length > 0;
-        const isVoice = Boolean(msg.voice?.file_id || msg.audio?.file_id);
-        if (!isText && !isVoice) continue;
+        const isVoice = Boolean(msg.voice?.file_id || msg.audio?.file_id || msg.video_note?.file_id);
+        if (!isText && !isVoice) {
+          if (DEBUG_UPDATES) {
+            const keys = Object.keys(msg).join(",");
+            console.log(`[debug] skipped non-text update keys=${keys}`);
+          }
+          continue;
+        }
 
         const chatId = String(msg.chat.id);
 
@@ -297,7 +304,7 @@ async function poll() {
         }
 
         const userName = msg.from?.first_name || "someone";
-        console.log(`[${chatId}] ${userName}: ${isText ? msg.text : "[voice note]"}`);
+        console.log(`[${chatId}] ${userName}: ${isText ? msg.text : "[voice/audio note]"}`);
 
         // Handle /start
         if (isText && msg.text === "/start") {
