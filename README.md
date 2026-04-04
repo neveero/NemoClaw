@@ -113,6 +113,40 @@ Alternatively, send a single message and print the response:
 openclaw agent --agent main --local -m "hello" --session-id test
 ```
 
+### Headless VPS Setup (Persistent Services)
+
+For remote Ubuntu hosts, install persistent user services for:
+
+- Telegram bridge
+- Cloudflared tunnel
+- OpenShell dashboard forward (`18789`)
+
+Set your env vars first (`TELEGRAM_BOT_TOKEN`, `OPENAI_API_KEY` or `NVIDIA_API_KEY`, and optional `NEMOCLAW_SANDBOX`), then run:
+
+```bash
+source ~/.profile
+./scripts/setup-headless-services.sh --sandbox my-assistant
+sudo loginctl enable-linger "$USER"
+```
+
+Restart and verify all services:
+
+```bash
+./scripts/restart-headless-services.sh my-assistant
+```
+
+For scheduler-to-Telegram announcements, also set `TELEGRAM_CHAT_ID` and run:
+
+```bash
+./scripts/run-scheduled-agent.sh my-assistant "Daily check-in: summarize status and next actions."
+```
+
+The helper scripts live in:
+
+- `scripts/setup-headless-services.sh`
+- `scripts/restart-headless-services.sh`
+- `scripts/run-scheduled-agent.sh`
+
 ### Uninstall
 
 To remove NemoClaw and all resources created during setup, run the uninstall script:

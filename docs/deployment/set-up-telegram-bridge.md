@@ -37,10 +37,12 @@ Follow the prompts to create a bot and receive a bot token.
 
 ## Set the Environment Variable
 
-Export the bot token as an environment variable:
+Export the bot token and an inference key as environment variables:
 
 ```console
 $ export TELEGRAM_BOT_TOKEN=<your-bot-token>
+$ export OPENAI_API_KEY=<your-openai-key>     # or NVIDIA_API_KEY
+$ export TELEGRAM_CHAT_ID=<your-chat-id>      # optional, for scheduler announcements
 ```
 
 ## Start Auxiliary Services
@@ -56,7 +58,28 @@ The `start` command launches the following services:
 - The Telegram bridge forwards messages between Telegram and the agent.
 - The cloudflared tunnel provides external access to the sandbox.
 
-The Telegram bridge starts only when the `TELEGRAM_BOT_TOKEN` environment variable is set.
+The Telegram bridge starts only when `TELEGRAM_BOT_TOKEN` is set and at least one inference key is present (`OPENAI_API_KEY` or `NVIDIA_API_KEY`).
+
+## Voice Notes
+
+The bridge accepts Telegram text messages and voice notes.
+Voice-note transcription uses the OpenAI transcription API and therefore requires `OPENAI_API_KEY`.
+
+## Persistent Headless Services (Ubuntu)
+
+For remote servers where SSH sessions disconnect, install persistent user services:
+
+```console
+$ source ~/.profile
+$ ./scripts/setup-headless-services.sh --sandbox my-assistant
+$ sudo loginctl enable-linger "$USER"
+```
+
+To restart and verify all services (bridge, forward, tunnel):
+
+```console
+$ ./scripts/restart-headless-services.sh my-assistant
+```
 
 ## Verify the Services
 
