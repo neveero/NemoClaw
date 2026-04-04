@@ -11,7 +11,8 @@
  *
  * Env:
  *   TELEGRAM_BOT_TOKEN  — from @BotFather
- *   NVIDIA_API_KEY      — for inference
+ *   NVIDIA_API_KEY      — for NVIDIA inference (optional if OPENAI_API_KEY is set)
+ *   OPENAI_API_KEY      — for OpenAI inference (optional if NVIDIA_API_KEY is set)
  *   SANDBOX_NAME        — sandbox name (default: nemoclaw)
  *   ALLOWED_CHAT_IDS    — comma-separated Telegram chat IDs to accept (optional, accepts all if unset)
  */
@@ -29,13 +30,17 @@ if (!OPENSHELL) {
 }
 
 const TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-const API_KEY = process.env.NVIDIA_API_KEY;
+const NVIDIA_API_KEY = process.env.NVIDIA_API_KEY || "";
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY || "";
 const SANDBOX = process.env.SANDBOX_NAME || "nemoclaw";
 try { validateName(SANDBOX, "SANDBOX_NAME"); } catch (e) { console.error(e.message); process.exit(1); }
 const ALLOWED_CHATS = parseAllowedChatIds(process.env.ALLOWED_CHAT_IDS);
 
 if (!TOKEN) { console.error("TELEGRAM_BOT_TOKEN required"); process.exit(1); }
-if (!API_KEY) { console.error("NVIDIA_API_KEY required"); process.exit(1); }
+if (!NVIDIA_API_KEY && !OPENAI_API_KEY) {
+  console.error("NVIDIA_API_KEY or OPENAI_API_KEY required");
+  process.exit(1);
+}
 
 let offset = 0;
 const activeSessions = new Map(); // chatId → message history
@@ -108,7 +113,7 @@ function runAgentInSandbox(message, sessionId) {
     // The remote command reads them from environment/stdin rather than
     // embedding user content in a shell string.
     const safeSessionId = String(sessionId).replace(/[^a-zA-Z0-9-]/g, "");
-    const cmd = `export NVIDIA_API_KEY=${shellQuote(API_KEY)} && nemoclaw-start openclaw agent --agent main --local -m ${shellQuote(message)} --session-id ${shellQuote("tg-" + safeSessionId)}`;
+    const cmd = `export NVIDIA_API_KEY=${shellQuote(NVIDIA_API_KEY)} OPENAI_API_KEY=${shellQuote(OPENAI_API_KEY)} && nemoclaw-start openclaw agent --agent main --local -m ${shellQuote(message)} --session-id ${shellQuote("tg-" + safeSessionId)}`;
 
     const proc = spawn("ssh", ["-T", "-F", confPath, `openshell-${SANDBOX}`, cmd], {
       timeout: 120000,

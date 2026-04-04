@@ -255,9 +255,9 @@ export async function startAll(opts: ServiceOptions = {}): Promise<void> {
   if (!process.env.TELEGRAM_BOT_TOKEN) {
     warn("TELEGRAM_BOT_TOKEN not set — Telegram bridge will not start.");
     warn("Create a bot via @BotFather on Telegram and set the token.");
-  } else if (!process.env.NVIDIA_API_KEY) {
-    warn("NVIDIA_API_KEY not set — Telegram bridge will not start.");
-    warn("Set NVIDIA_API_KEY if you want Telegram requests to reach inference.");
+  } else if (!process.env.NVIDIA_API_KEY && !process.env.OPENAI_API_KEY) {
+    warn("Neither NVIDIA_API_KEY nor OPENAI_API_KEY is set — Telegram bridge will not start.");
+    warn("Set one provider key to let Telegram requests reach inference.");
   }
 
   // Warn if no sandbox is ready
@@ -289,8 +289,8 @@ export async function startAll(opts: ServiceOptions = {}): Promise<void> {
     }
   }
 
-  // Telegram bridge (only if both token and API key are set)
-  if (process.env.TELEGRAM_BOT_TOKEN && process.env.NVIDIA_API_KEY) {
+  // Telegram bridge (only if token and at least one provider API key are set)
+  if (process.env.TELEGRAM_BOT_TOKEN && (process.env.NVIDIA_API_KEY || process.env.OPENAI_API_KEY)) {
     const sandboxName =
       opts.sandboxName ?? process.env.NEMOCLAW_SANDBOX ?? process.env.SANDBOX_NAME ?? "default";
     startService(
