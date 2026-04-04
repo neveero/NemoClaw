@@ -52,16 +52,43 @@ FROM node:22-slim@sha256:4f77a690f2f8946ab16fe1e791a3ac0667ae1c3575c3e4d0d4589e9
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-        python3=3.11.2-1+b1 \
-        python3-pip=23.0.1+dfsg-1 \
-        python3-venv=3.11.2-1+b1 \
-        curl=7.88.1-10+deb12u14 \
-        git=1:2.39.5-0+deb12u3 \
-        ca-certificates=20230311+deb12u1 \
-        iproute2=6.1.0-3 \
-        iptables=1.8.9-2 \
-        libcap2-bin=1:2.66-4+deb12u2+b2 \
+RUN (apt-get remove --purge -y gcc gcc-12 g++ g++-12 cpp cpp-12 make \
+            netcat-openbsd netcat-traditional ncat 2>/dev/null || true) \
+    && apt-get autoremove --purge -y \
+    && apt-get update && apt-get install -y --no-install-recommends \
+        python3 \
+        python3-pip \
+        python3-venv \
+        curl \
+        git \
+        ca-certificates \
+        awscli \
+        gh \
+        jq \
+        ripgrep \
+        tmux \
+        ffmpeg \
+        libnss3 \
+        libnspr4 \
+        libatk1.0-0 \
+        libatk-bridge2.0-0 \
+        libcups2 \
+        libdrm2 \
+        libdbus-1-3 \
+        libxkbcommon0 \
+        libxcomposite1 \
+        libxdamage1 \
+        libxfixes3 \
+        libxrandr2 \
+        libgbm1 \
+        libasound2 \
+        libatspi2.0-0 \
+        libpango-1.0-0 \
+        libcairo2 \
+        libx11-xcb1 \
+        iproute2 \
+        iptables \
+        libcap2-bin \
     && rm -rf /var/lib/apt/lists/*
 
 # gosu for privilege separation (gateway vs sandbox user).
@@ -82,8 +109,10 @@ RUN arch="$(dpkg --print-architecture)" \
 # Create sandbox user (matches OpenShell convention) and gateway user.
 # The gateway runs as 'gateway' so the 'sandbox' user (agent) cannot
 # kill it or restart it with a tampered HOME/config.
-RUN groupadd -r gateway && useradd -r -g gateway -d /sandbox -s /usr/sbin/nologin gateway \
-    && groupadd -r sandbox && useradd -r -g sandbox -d /sandbox -s /bin/bash sandbox \
+RUN getent group gateway >/dev/null || groupadd -r gateway \
+    && id -u gateway >/dev/null 2>&1 || useradd -r -g gateway -d /sandbox -s /usr/sbin/nologin gateway \
+    && getent group sandbox >/dev/null || groupadd -r sandbox \
+    && id -u sandbox >/dev/null 2>&1 || useradd -r -g sandbox -d /sandbox -s /bin/bash sandbox \
     && mkdir -p /sandbox/.nemoclaw \
     && chown -R sandbox:sandbox /sandbox
 
@@ -101,7 +130,6 @@ RUN mkdir -p /sandbox/.openclaw-data/agents/main/agent \
         /sandbox/.openclaw-data/devices \
         /sandbox/.openclaw-data/canvas \
         /sandbox/.openclaw-data/cron \
-        /sandbox/.openclaw-data/memory \
     && mkdir -p /sandbox/.openclaw \
     && ln -s /sandbox/.openclaw-data/agents /sandbox/.openclaw/agents \
     && ln -s /sandbox/.openclaw-data/extensions /sandbox/.openclaw/extensions \
@@ -112,12 +140,30 @@ RUN mkdir -p /sandbox/.openclaw-data/agents/main/agent \
     && ln -s /sandbox/.openclaw-data/devices /sandbox/.openclaw/devices \
     && ln -s /sandbox/.openclaw-data/canvas /sandbox/.openclaw/canvas \
     && ln -s /sandbox/.openclaw-data/cron /sandbox/.openclaw/cron \
-    && ln -s /sandbox/.openclaw-data/memory /sandbox/.openclaw/memory \
     && touch /sandbox/.openclaw-data/update-check.json \
     && ln -s /sandbox/.openclaw-data/update-check.json /sandbox/.openclaw/update-check.json \
     && chown -R sandbox:sandbox /sandbox/.openclaw /sandbox/.openclaw-data
 
-# Install OpenClaw CLI + PyYAML for inline Python scripts in e2e tests.
+# Install OpenClaw CLI.
 # When bumping the openclaw version, rebuild this base image.
-RUN npm install -g openclaw@2026.3.11 \
-    && pip3 install --no-cache-dir --break-system-packages "pyyaml==6.0.3"
+RUN npm install -g openclaw@2026.3.11
+
+# Install MCPorter CLI.
+RUN npm install -g mcporter
+
+# Install ClawHub CLI and alias `clawdhub` -> `clawhub`.
+RUN npm install -g clawhub || true \
+    && if command -v clawhub >/dev/null 2>&1; then ln -sf /usr/local/bin/clawhub /usr/local/bin/clawdhub; fi
+
+# Install Agent Browser CLI (fallback shim may be added in runtime image).
+RUN npm install -g agent-browser || true
+
+# Install Brave Search tooling (fallback shim may be added in runtime image).
+RUN npm install -g brave-search-mcp || true
+
+# Install Playwright and preload Chromium for browser automation in sandbox.
+RUN npm install -g playwright \
+    && PLAYWRIGHT_BROWSERS_PATH=/ms-playwright playwright install chromium
+
+# Install Python runtime deps needed by skills.
+RUN pip3 install --break-system-packages pyyaml uv tiktok-uploader
