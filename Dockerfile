@@ -13,10 +13,10 @@ ARG BASE_IMAGE=ghcr.io/nvidia/nemoclaw/sandbox-base:latest
 
 # Stage 1: Build TypeScript plugin from source
 FROM node:22-slim@sha256:4f77a690f2f8946ab16fe1e791a3ac0667ae1c3575c3e4d0d4589e9ed5bfaf3d AS builder
-COPY nemoclaw/package.json nemoclaw/tsconfig.json /opt/nemoclaw/
+COPY nemoclaw/package.json nemoclaw/package-lock.json nemoclaw/tsconfig.json /opt/nemoclaw/
 COPY nemoclaw/src/ /opt/nemoclaw/src/
 WORKDIR /opt/nemoclaw
-RUN npm install && npm run build
+RUN npm ci && npm run build
 
 # Stage 2: Runtime image — pull cached base from GHCR
 FROM ${BASE_IMAGE}
@@ -27,7 +27,7 @@ FROM ${BASE_IMAGE}
 # Copy built plugin and blueprint into the sandbox
 COPY --from=builder /opt/nemoclaw/dist/ /opt/nemoclaw/dist/
 COPY nemoclaw/openclaw.plugin.json /opt/nemoclaw/
-COPY nemoclaw/package.json /opt/nemoclaw/
+COPY nemoclaw/package.json nemoclaw/package-lock.json /opt/nemoclaw/
 COPY nemoclaw-blueprint/ /opt/nemoclaw-blueprint/
 
 # Install runtime dependencies only (no devDependencies, no build step)
