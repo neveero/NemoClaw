@@ -144,9 +144,11 @@ USER sandbox
 # Pin config hash at build time so the entrypoint can verify integrity.
 # Prevents the agent from creating a copy with a tampered config and
 # restarting the gateway pointing at it.
+USER root
 RUN sha256sum /sandbox/.openclaw/openclaw.json > /sandbox/.openclaw/.config-hash \
     && chmod 444 /sandbox/.openclaw/.config-hash \
     && chown root:root /sandbox/.openclaw/.config-hash
+USER sandbox
 
 # Entrypoint runs as root to start the gateway as the gateway user,
 # then drops to sandbox for agent commands. See nemoclaw-start.sh.
