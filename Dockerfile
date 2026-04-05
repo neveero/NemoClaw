@@ -82,7 +82,7 @@ USER sandbox
 # Build args (NEMOCLAW_MODEL, CHAT_UI_URL) customize per deployment.
 # Auth token is generated per build so each image has a unique token.
 RUN python3 -c "\
-import json, os, secrets; \
+import base64, json, os, secrets; \
 from urllib.parse import urlparse; \
 model = os.environ['NEMOCLAW_MODEL']; \
 chat_ui_url = os.environ['CHAT_UI_URL']; \
@@ -96,6 +96,7 @@ parsed = urlparse(chat_ui_url); \
 chat_origin = f'{parsed.scheme}://{parsed.netloc}' if parsed.scheme and parsed.netloc else 'http://127.0.0.1:18789'; \
 origins = ['http://127.0.0.1:18789']; \
 origins = list(dict.fromkeys(origins + [chat_origin])); \
+allow_insecure = parsed.scheme == 'http'; \
 config = { \
     'agents': {'defaults': {'model': {'primary': f'inference/{model}'}}}, \
     'models': {'mode': 'merge', 'providers': { \
@@ -116,8 +117,8 @@ config = { \
     'gateway': { \
         'mode': 'local', \
         'controlUi': { \
-            'allowInsecureAuth': True, \
-            'dangerouslyDisableDeviceAuth': True, \
+            'allowInsecureAuth': allow_insecure, \
+            'dangerouslyDisableDeviceAuth': False, \
             'allowedOrigins': origins, \
         }, \
         'trustedProxies': ['127.0.0.1', '::1'], \
@@ -152,9 +153,11 @@ RUN openclaw doctor --fix > /dev/null 2>&1 || true \
 # once OpenShell enables enforcement.
 # Ref: https://github.com/NVIDIA/NemoClaw/issues/514
 # Lock the entire .openclaw directory tree.
-# SECURITY: chmod 755 (not 1777) — the sandbox user can READ but not WRITE
-# to this directory. This prevents the agent from replacing symlinks
-# (e.g., pointing /sandbox/.openclaw/hooks to an attacker-controlled path).
+# SECURITY: keep sticky mode (1777) at build time so runtime can support
+# controlled writable-mode toggles; secure mode is re-applied in entrypoint.
+# Symlink replacement is prevented by runtime validation + immutable flags.
+# The sandbox user can READ this directory but ownership constraints still
+# protect root-owned entries unless writable mode is explicitly enabled.
 # The writable state lives in .openclaw-data, reached via the symlinks.
 # hadolint ignore=DL3002
 USER root
