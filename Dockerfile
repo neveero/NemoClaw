@@ -74,8 +74,9 @@ WORKDIR /sandbox
 USER sandbox
 
 # Write the COMPLETE openclaw.json including gateway config and auth token.
-# This file is immutable at runtime (Landlock read-only on /sandbox/.openclaw).
-# No runtime writes to openclaw.json are needed or possible.
+# Default runtime mode is secure (read-only + integrity hash enforced).
+# Optional runtime override NEMOCLAW_ALLOW_CONFIG_WRITES=1 can relax this at
+# container start for controlled debugging workflows.
 # Build args (NEMOCLAW_MODEL, CHAT_UI_URL) customize per deployment.
 # Auth token is generated per build so each image has a unique token.
 RUN python3 -c "\

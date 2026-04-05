@@ -15,6 +15,8 @@
 #   NEMOCLAW_DISABLE_DEVICE_AUTH  Build-time only. Set to "1" to skip device-pairing auth
 #                                 (development/headless). Has no runtime effect — openclaw.json
 #                                 is baked at image build and verified by hash at startup.
+#   NEMOCLAW_ALLOW_CONFIG_WRITES  Runtime toggle. Set to "1" to allow openclaw.json writes
+#                                 by skipping hash enforcement and immutable filesystem flags.
 
 set -euo pipefail
 
@@ -96,12 +98,20 @@ NEMOCLAW_CMD=("$@")
 CHAT_UI_URL="${CHAT_UI_URL:-http://127.0.0.1:18789}"
 PUBLIC_PORT=18789
 OPENCLAW="$(command -v openclaw)" # Resolve once, use absolute path everywhere
+ALLOW_CONFIG_WRITES="${NEMOCLAW_ALLOW_CONFIG_WRITES:-0}"
+if [ "$ALLOW_CONFIG_WRITES" != "1" ]; then
+  ALLOW_CONFIG_WRITES="0"
+fi
 
 # ── Config integrity check ──────────────────────────────────────
 # The config hash was pinned at build time. If it doesn't match,
 # someone (or something) has tampered with the config.
 
 verify_config_integrity() {
+  if [ "$ALLOW_CONFIG_WRITES" = "1" ]; then
+    echo "[SECURITY] NEMOCLAW_ALLOW_CONFIG_WRITES=1 — skipping config hash integrity enforcement" >&2
+    return 0
+  fi
   local hash_file="/sandbox/.openclaw/.config-hash"
   if [ ! -f "$hash_file" ]; then
     echo "[SECURITY] Config hash file missing — refusing to start without integrity verification" >&2
@@ -112,6 +122,60 @@ verify_config_integrity() {
     echo "[SECURITY] Expected hash: $(cat "$hash_file")" >&2
     echo "[SECURITY] Actual hash:   $(sha256sum /sandbox/.openclaw/openclaw.json)" >&2
     return 1
+  fi
+}
+
+set_config_writes_flag() {
+  local enabled="$1"
+  python3 - <<'PYCFG' "$enabled"
+import json
+import sys
+
+enabled = sys.argv[1] == "1"
+path = "/sandbox/.openclaw/openclaw.json"
+cfg = json.load(open(path))
+channels = cfg.setdefault("channels", {})
+defaults = channels.setdefault("defaults", {})
+defaults["configWrites"] = enabled
+with open(path, "w") as f:
+    json.dump(cfg, f, indent=2)
+PYCFG
+}
+
+apply_runtime_config_mode() {
+  if [ "$ALLOW_CONFIG_WRITES" = "1" ]; then
+    if [ "$(id -u)" -ne 0 ]; then
+      echo "[SECURITY] NEMOCLAW_ALLOW_CONFIG_WRITES=1 requested, but entrypoint is non-root; cannot relax DAC ownership automatically" >&2
+      return 0
+    fi
+    if command -v chattr >/dev/null 2>&1; then
+      chattr -i /sandbox/.openclaw 2>/dev/null || true
+      chattr -i /sandbox/.openclaw/* 2>/dev/null || true
+    fi
+    chown sandbox:sandbox /sandbox/.openclaw /sandbox/.openclaw/openclaw.json 2>/dev/null || true
+    chmod 755 /sandbox/.openclaw 2>/dev/null || true
+    chmod 600 /sandbox/.openclaw/openclaw.json 2>/dev/null || true
+    set_config_writes_flag 1 || true
+    rm -f /sandbox/.openclaw/.config-hash
+    return 0
+  fi
+
+  # Secure/default mode
+  if [ "$(id -u)" -eq 0 ]; then
+    if command -v chattr >/dev/null 2>&1; then
+      chattr -i /sandbox/.openclaw 2>/dev/null || true
+      chattr -i /sandbox/.openclaw/* 2>/dev/null || true
+    fi
+    # Temporarily make file writable so configWrites can be forced off before locking.
+    chmod 600 /sandbox/.openclaw/openclaw.json 2>/dev/null || true
+    set_config_writes_flag 0 || true
+    chown root:root /sandbox/.openclaw 2>/dev/null || true
+    find /sandbox/.openclaw -mindepth 1 -maxdepth 1 -exec chown -h root:root {} + 2>/dev/null || true
+    chmod 1777 /sandbox/.openclaw 2>/dev/null || true
+    chmod 444 /sandbox/.openclaw/openclaw.json 2>/dev/null || true
+    sha256sum /sandbox/.openclaw/openclaw.json > /sandbox/.openclaw/.config-hash
+    chmod 444 /sandbox/.openclaw/.config-hash
+    chown root:root /sandbox/.openclaw/.config-hash
   fi
 }
 
@@ -268,12 +332,15 @@ PROXY_HOST="${NEMOCLAW_PROXY_HOST:-10.200.0.1}"
 PROXY_PORT="${NEMOCLAW_PROXY_PORT:-3128}"
 _PROXY_URL="http://${PROXY_HOST}:${PROXY_PORT}"
 _NO_PROXY_VAL="localhost,127.0.0.1,::1,${PROXY_HOST}"
+_GIT_SSL_CAINFO="/etc/openshell-tls/ca-bundle.pem"
 export HTTP_PROXY="$_PROXY_URL"
 export HTTPS_PROXY="$_PROXY_URL"
 export NO_PROXY="$_NO_PROXY_VAL"
 export http_proxy="$_PROXY_URL"
 export https_proxy="$_PROXY_URL"
 export no_proxy="$_NO_PROXY_VAL"
+export GIT_SSL_CAINFO="$_GIT_SSL_CAINFO"
+export GIT_SSL_CAPATH="/etc/ssl/certs"
 
 # OpenShell re-injects narrow NO_PROXY/no_proxy=127.0.0.1,localhost,::1 every
 # time a user connects via `openshell sandbox connect`.  The connect path spawns
@@ -299,6 +366,8 @@ export NO_PROXY=\"$_NO_PROXY_VAL\"
 export http_proxy=\"$_PROXY_URL\"
 export https_proxy=\"$_PROXY_URL\"
 export no_proxy=\"$_NO_PROXY_VAL\"
+export GIT_SSL_CAINFO=\"$_GIT_SSL_CAINFO\"
+export GIT_SSL_CAPATH=\"/etc/ssl/certs\"
 ${_PROXY_MARKER_END}"
 
 if [ "$(id -u)" -eq 0 ]; then
@@ -332,6 +401,7 @@ fi
 
 echo 'Setting up NemoClaw...' >&2
 [ -f .env ] && chmod 600 .env
+apply_runtime_config_mode
 
 # ── Non-root fallback ──────────────────────────────────────────
 # OpenShell runs containers with --security-opt=no-new-privileges, which
@@ -411,7 +481,9 @@ done
 # bypassed. chattr requires cap_linux_immutable which the entrypoint has
 # as root; the sandbox user cannot remove the flag.
 # Ref: https://github.com/NVIDIA/NemoClaw/issues/1019
-if command -v chattr >/dev/null 2>&1; then
+if [ "$ALLOW_CONFIG_WRITES" = "1" ]; then
+  echo "[SECURITY] NEMOCLAW_ALLOW_CONFIG_WRITES=1 — skipping immutable flag on /sandbox/.openclaw" >&2
+elif command -v chattr >/dev/null 2>&1; then
   chattr +i /sandbox/.openclaw 2>/dev/null || true
   for entry in /sandbox/.openclaw/*; do
     [ -L "$entry" ] || continue

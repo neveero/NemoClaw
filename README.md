@@ -157,6 +157,37 @@ The helper scripts live in:
 - `scripts/restart-headless-services.sh`
 - `scripts/run-scheduled-agent.sh`
 
+### Toggle OpenClaw Config Writability
+
+By default, sandbox startup enforces secure mode:
+
+- `/sandbox/.openclaw/openclaw.json` locked read-only
+- integrity hash check enabled
+- immutable lock on `.openclaw` symlink layer
+
+To temporarily allow config writes at sandbox startup, set:
+
+```bash
+export NEMOCLAW_ALLOW_CONFIG_WRITES=1
+```
+
+Then recreate/onboard the sandbox so the runtime env is applied:
+
+```bash
+export NEMOCLAW_RECREATE_SANDBOX=1
+nemoclaw onboard --resume
+```
+
+To return to secure mode, set it back to `0` (or unset) and recreate:
+
+```bash
+export NEMOCLAW_ALLOW_CONFIG_WRITES=0
+export NEMOCLAW_RECREATE_SANDBOX=1
+nemoclaw onboard --resume
+```
+
+Use writable mode only for controlled troubleshooting. Secure mode is recommended for normal operation.
+
 ### Uninstall
 
 To remove NemoClaw and all resources created during setup, run the uninstall script:
