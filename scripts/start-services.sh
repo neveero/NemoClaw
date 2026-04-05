@@ -153,7 +153,8 @@ do_start() {
 
   # Telegram bridge (only if token provided)
   if [ -n "${TELEGRAM_BOT_TOKEN:-}" ] && { [ -n "${NVIDIA_API_KEY:-}" ] || [ -n "${OPENAI_API_KEY:-}" ]; }; then
-    SANDBOX_NAME="$SANDBOX_NAME" start_service telegram-bridge \
+    start_service telegram-bridge \
+      env SANDBOX_NAME="$SANDBOX_NAME" \
       node "$REPO_DIR/scripts/telegram-bridge.js"
   fi
 
