@@ -45,3 +45,17 @@ secrets.json
 secrets.yaml
 service-account*.json
 token.json
+/.idea/inspectionProfiles/Project_Default.xml
+/.idea/.gitignore
+/.idea/modules.xml
+/.idea/NemoClaw.iml
+/.idea/prettier.xml
+/.idea/vcs.xml
+/nemoclaw/.idea/inspectionProfiles/Project_Default.xml
+/nemoclaw/.idea/codeStyles/codeStyleConfig.xml
+/nemoclaw/.idea/codeStyles/Project.xml
+/nemoclaw/.idea/.gitignore
+/nemoclaw/.idea/modules.xml
+/nemoclaw/.idea/nemoclaw.iml
+/nemoclaw/.idea/prettier.xml
+/nemoclaw/.idea/vcs.xml
