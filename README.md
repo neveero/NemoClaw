@@ -129,17 +129,27 @@ source ~/.profile
 sudo loginctl enable-linger "$USER"
 ```
 
+This setup installs an `openclaw-scheduler.timer` with default cadence every 10 minutes (`OnCalendar=*:0/10`).
+Override schedule before setup with:
+
+```bash
+export SCHEDULER_ON_CALENDAR='hourly'
+./scripts/setup-headless-services.sh --sandbox my-assistant
+```
+
 Restart and verify all services:
 
 ```bash
 ./scripts/restart-headless-services.sh my-assistant
 ```
 
-For scheduler-to-Telegram announcements, also set `TELEGRAM_CHAT_ID` and run:
+For scheduler-to-Telegram market briefings, also set `TELEGRAM_CHAT_ID` and run:
 
 ```bash
-./scripts/run-scheduled-agent.sh my-assistant "Daily check-in: summarize status and next actions."
+./scripts/run-scheduled-agent.sh my-assistant
 ```
+
+The scheduler script sends directly to Telegram Bot API (`sendMessage`) and does not depend on OpenClaw `delivery.mode=announce` channels.
 
 The helper scripts live in:
 

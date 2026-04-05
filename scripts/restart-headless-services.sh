@@ -17,6 +17,11 @@ systemctl --user restart openshell-forward-18789 || true
 echo "[restart] cloudflared tunnel"
 systemctl --user restart cloudflared-nemoclaw
 
+echo "[restart] scheduler"
+systemctl --user restart openclaw-scheduler.timer
+systemctl --user start openclaw-scheduler.service || true
+
 echo "[status]"
 systemctl --user status telegram-bridge-nemoclaw cloudflared-nemoclaw --no-pager
+systemctl --user status openclaw-scheduler.timer --no-pager
 curl -I http://127.0.0.1:18789/
