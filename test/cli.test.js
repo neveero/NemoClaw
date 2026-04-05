@@ -102,6 +102,16 @@ describe("CLI dispatch", () => {
       ].join("\n"),
       { mode: 0o755 },
     );
+    fs.writeFileSync(
+      path.join(localBin, "cloudflared"),
+      "#!/bin/sh\necho 'https://test.trycloudflare.com'\nsleep 30\n",
+      { mode: 0o755 },
+    );
+    fs.writeFileSync(
+      path.join(localBin, "openshell"),
+      '#!/bin/sh\nif [ "$1" = "sandbox" ] && [ "$2" = "list" ]; then exit 0; fi\nexit 0\n',
+      { mode: 0o755 },
+    );
 
     const r = runWithEnv("start", {
       HOME: home,

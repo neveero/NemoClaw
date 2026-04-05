@@ -129,6 +129,8 @@ source ~/.profile
 sudo loginctl enable-linger "$USER"
 ```
 
+If you want OpenClaw native `cron --announce --channel telegram` delivery (instead of host-side bridge delivery), export `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` before `nemoclaw onboard`. NemoClaw now bakes Telegram channel config into sandbox `openclaw.json` at build time when these variables are present.
+
 This setup installs an `openclaw-scheduler.timer` with default cadence every 10 minutes (`OnCalendar=*:0/10`).
 Override schedule before setup with:
 

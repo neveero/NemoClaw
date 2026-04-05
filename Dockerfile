@@ -52,6 +52,7 @@ ARG NEMOCLAW_INFERENCE_BASE_URL=https://inference.local/v1
 ARG NEMOCLAW_INFERENCE_API=openai-completions
 ARG NEMOCLAW_INFERENCE_COMPAT_B64=e30=
 ARG NEMOCLAW_WEB_CONFIG_B64=e30=
+ARG NEMOCLAW_TELEGRAM_CONFIG_B64=e30=
 # Set to "1" to disable device-pairing auth (development/headless only).
 # Default: "0" (device auth enabled — secure by default).
 ARG NEMOCLAW_DISABLE_DEVICE_AUTH=0
@@ -70,6 +71,7 @@ ENV NEMOCLAW_MODEL=${NEMOCLAW_MODEL} \
     NEMOCLAW_INFERENCE_API=${NEMOCLAW_INFERENCE_API} \
     NEMOCLAW_INFERENCE_COMPAT_B64=${NEMOCLAW_INFERENCE_COMPAT_B64} \
     NEMOCLAW_WEB_CONFIG_B64=${NEMOCLAW_WEB_CONFIG_B64} \
+    NEMOCLAW_TELEGRAM_CONFIG_B64=${NEMOCLAW_TELEGRAM_CONFIG_B64} \
     NEMOCLAW_DISABLE_DEVICE_AUTH=${NEMOCLAW_DISABLE_DEVICE_AUTH}
 
 WORKDIR /sandbox
@@ -92,11 +94,13 @@ inference_base_url = os.environ['NEMOCLAW_INFERENCE_BASE_URL']; \
 inference_api = os.environ['NEMOCLAW_INFERENCE_API']; \
 inference_compat = json.loads(base64.b64decode(os.environ['NEMOCLAW_INFERENCE_COMPAT_B64']).decode('utf-8')); \
 web_config = json.loads(base64.b64decode(os.environ.get('NEMOCLAW_WEB_CONFIG_B64', 'e30=') or 'e30=').decode('utf-8')); \
+telegram_config = json.loads(base64.b64decode(os.environ.get('NEMOCLAW_TELEGRAM_CONFIG_B64', 'e30=') or 'e30=').decode('utf-8')); \
 parsed = urlparse(chat_ui_url); \
 chat_origin = f'{parsed.scheme}://{parsed.netloc}' if parsed.scheme and parsed.netloc else 'http://127.0.0.1:18789'; \
 origins = ['http://127.0.0.1:18789']; \
 origins = list(dict.fromkeys(origins + [chat_origin])); \
 allow_insecure = parsed.scheme == 'http'; \
+disable_device_auth = os.environ.get('NEMOCLAW_DISABLE_DEVICE_AUTH', '') == '1'; \
 config = { \
     'agents': {'defaults': {'model': {'primary': f'inference/{model}'}}}, \
     'models': {'mode': 'merge', 'providers': { \
@@ -118,7 +122,7 @@ config = { \
         'mode': 'local', \
         'controlUi': { \
             'allowInsecureAuth': allow_insecure, \
-            'dangerouslyDisableDeviceAuth': False, \
+            'dangerouslyDisableDeviceAuth': disable_device_auth, \
             'allowedOrigins': origins, \
         }, \
         'trustedProxies': ['127.0.0.1', '::1'], \
@@ -139,6 +143,12 @@ config.update({ \
         } \
     } \
 } if web_config.get('provider') == 'brave' else {}); \
+config.update({ \
+    'channels': { \
+        **config.get('channels', {}), \
+        'telegram': telegram_config \
+    } \
+} if telegram_config.get('enabled') else {}); \
 path = os.path.expanduser('~/.openclaw/openclaw.json'); \
 json.dump(config, open(path, 'w'), indent=2); \
 os.chmod(path, 0o600)"

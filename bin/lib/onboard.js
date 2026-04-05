@@ -974,6 +974,24 @@ function encodeDockerJsonArg(value) {
   return Buffer.from(JSON.stringify(value || {}), "utf8").toString("base64");
 }
 
+function buildDockerTelegramConfig() {
+  const token = getCredential("TELEGRAM_BOT_TOKEN") || process.env.TELEGRAM_BOT_TOKEN;
+  if (!token) return {};
+
+  const rawChatId = String(process.env.TELEGRAM_CHAT_ID || "").trim();
+  const hasChatId = rawChatId.length > 0;
+  const cfg = {
+    enabled: true,
+    botToken: token,
+    dmPolicy: hasChatId ? "allowlist" : "pairing",
+    configWrites: false,
+  };
+  if (hasChatId) {
+    cfg.allowFrom = [`tg:${rawChatId}`];
+  }
+  return cfg;
+}
+
 function isAffirmativeAnswer(value) {
   return ["y", "yes"].includes(
     String(value || "")
@@ -1212,11 +1230,16 @@ function patchStagedDockerfile(
       webSearchConfig ? getCredential(webSearch.BRAVE_API_KEY_ENV) : null,
     )}`,
   );
-  // Onboard flow expects immediate dashboard access without device pairing,
-  // so disable device auth for images built during onboard (see #1217).
+  dockerfile = dockerfile.replace(
+    /^ARG NEMOCLAW_TELEGRAM_CONFIG_B64=.*$/m,
+    `ARG NEMOCLAW_TELEGRAM_CONFIG_B64=${encodeDockerJsonArg(buildDockerTelegramConfig())}`,
+  );
+  // Respect explicit device-auth toggle from environment.
+  // Default is secure mode (pairing required).
+  const disableDeviceAuth = process.env.NEMOCLAW_DISABLE_DEVICE_AUTH === "1" ? "1" : "0";
   dockerfile = dockerfile.replace(
     /^ARG NEMOCLAW_DISABLE_DEVICE_AUTH=.*$/m,
-    `ARG NEMOCLAW_DISABLE_DEVICE_AUTH=1`,
+    `ARG NEMOCLAW_DISABLE_DEVICE_AUTH=${disableDeviceAuth}`,
   );
   fs.writeFileSync(dockerfilePath, dockerfile);
 }

@@ -3,7 +3,7 @@
 
 import { describe, it, expect } from "vitest";
 import { execSync, execFileSync } from "node:child_process";
-import { mkdtempSync, writeFileSync, unlinkSync, readFileSync } from "node:fs";
+import { mkdtempSync, writeFileSync, unlinkSync, readFileSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { resolveOpenshell } from "../bin/lib/resolve-openshell";
@@ -13,13 +13,32 @@ describe("service environment", () => {
   describe("start-services behavior", () => {
     const scriptPath = join(import.meta.dirname, "../scripts/start-services.sh");
 
+    function makeFastPathShims(workspace) {
+      const binDir = join(workspace, "bin");
+      mkdirSync(binDir, { recursive: true });
+      writeFileSync(
+        join(binDir, "cloudflared"),
+        "#!/bin/sh\necho 'https://test.trycloudflare.com'\nsleep 30\n",
+        { mode: 0o755 },
+      );
+      writeFileSync(
+        join(binDir, "openshell"),
+        '#!/bin/sh\nif [ "$1" = "sandbox" ] && [ "$2" = "list" ]; then exit 0; fi\nexit 0\n',
+        { mode: 0o755 },
+      );
+      return `${binDir}:${process.env.PATH || ""}`;
+    }
+
     it("starts local-only services without NVIDIA_API_KEY", () => {
       const workspace = mkdtempSync(join(tmpdir(), "nemoclaw-services-no-key-"));
+      const pathWithShims = makeFastPathShims(workspace);
       const result = execFileSync("bash", [scriptPath], {
         encoding: "utf-8",
         env: {
           ...process.env,
+          PATH: pathWithShims,
           NVIDIA_API_KEY: "",
+          OPENAI_API_KEY: "",
           TELEGRAM_BOT_TOKEN: "",
           SANDBOX_NAME: "test-box",
           TMPDIR: workspace,
@@ -31,13 +50,16 @@ describe("service environment", () => {
       expect(result).toContain("Telegram:    not started (no token)");
     });
 
-    it("warns and skips Telegram bridge when token is set without NVIDIA_API_KEY", () => {
+    it("warns and skips Telegram bridge when token is set without provider keys", () => {
       const workspace = mkdtempSync(join(tmpdir(), "nemoclaw-services-missing-key-"));
+      const pathWithShims = makeFastPathShims(workspace);
       const result = execFileSync("bash", [scriptPath], {
         encoding: "utf-8",
         env: {
           ...process.env,
+          PATH: pathWithShims,
           NVIDIA_API_KEY: "",
+          OPENAI_API_KEY: "",
           TELEGRAM_BOT_TOKEN: "test-token",
           SANDBOX_NAME: "test-box",
           TMPDIR: workspace,
@@ -45,7 +67,7 @@ describe("service environment", () => {
       });
 
       expect(result).not.toContain("NVIDIA_API_KEY required");
-      expect(result).toContain("NVIDIA_API_KEY not set");
+      expect(result).toContain("Neither NVIDIA_API_KEY nor OPENAI_API_KEY is set");
       expect(result).toContain("Telegram:    not started (no token)");
     });
   });

@@ -45,6 +45,8 @@ $ export OPENAI_API_KEY=<your-openai-key>     # or NVIDIA_API_KEY
 $ export TELEGRAM_CHAT_ID=<your-chat-id>      # optional, for scheduler announcements
 ```
 
+When these variables are set before `nemoclaw onboard`, NemoClaw can bake Telegram channel config into sandbox `openclaw.json`, which enables OpenClaw native cron `--announce --channel telegram` delivery even when runtime config writes are disabled.
+
 ## Start Auxiliary Services
 
 Start the Telegram bridge and other auxiliary services:
