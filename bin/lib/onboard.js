@@ -2522,7 +2522,11 @@ async function createSandbox(
   // also strips any Authorization headers sent by the sandbox client.
   // See: crates/openshell-sandbox/src/proxy.rs (header stripping),
   //      crates/openshell-router/src/backend.rs (server-side auth injection).
-  const envArgs = [formatEnvAssignment("CHAT_UI_URL", chatUiUrl)];
+  const allowConfigWrites = process.env.NEMOCLAW_ALLOW_CONFIG_WRITES === "1" ? "1" : "0";
+  const envArgs = [
+    formatEnvAssignment("CHAT_UI_URL", chatUiUrl),
+    formatEnvAssignment("NEMOCLAW_ALLOW_CONFIG_WRITES", allowConfigWrites),
+  ];
   const sandboxEnv = { ...process.env };
   delete sandboxEnv.NVIDIA_API_KEY;
   const discordToken = getCredential("DISCORD_BOT_TOKEN") || process.env.DISCORD_BOT_TOKEN;

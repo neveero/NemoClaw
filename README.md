@@ -113,6 +113,81 @@ Alternatively, send a single message and print the response:
 openclaw agent --agent main --local -m "hello" --session-id test
 ```
 
+### Headless VPS Setup (Persistent Services)
+
+For remote Ubuntu hosts, install persistent user services for:
+
+- Telegram bridge
+- Cloudflared tunnel
+- OpenShell dashboard forward (`18789`)
+
+Set your env vars first (`TELEGRAM_BOT_TOKEN`, `OPENAI_API_KEY` or `NVIDIA_API_KEY`, and optional `NEMOCLAW_SANDBOX`), then run:
+
+```bash
+source ~/.profile
+./scripts/setup-headless-services.sh --sandbox my-assistant
+sudo loginctl enable-linger "$USER"
+```
+
+This setup installs an `openclaw-scheduler.timer` with default cadence every 10 minutes (`OnCalendar=*:0/10`).
+Override schedule before setup with:
+
+```bash
+export SCHEDULER_ON_CALENDAR='hourly'
+./scripts/setup-headless-services.sh --sandbox my-assistant
+```
+
+Restart and verify all services:
+
+```bash
+./scripts/restart-headless-services.sh my-assistant
+```
+
+For scheduler-to-Telegram market briefings, also set `TELEGRAM_CHAT_ID` and run:
+
+```bash
+./scripts/run-scheduled-agent.sh my-assistant
+```
+
+The scheduler script sends directly to Telegram Bot API (`sendMessage`) and does not depend on OpenClaw `delivery.mode=announce` channels.
+
+The helper scripts live in:
+
+- `scripts/setup-headless-services.sh`
+- `scripts/restart-headless-services.sh`
+- `scripts/run-scheduled-agent.sh`
+
+### Toggle OpenClaw Config Writability
+
+By default, sandbox startup enforces secure mode:
+
+- `/sandbox/.openclaw/openclaw.json` locked read-only
+- integrity hash check enabled
+- immutable lock on `.openclaw` symlink layer
+
+To temporarily allow config writes at sandbox startup, set:
+
+```bash
+export NEMOCLAW_ALLOW_CONFIG_WRITES=1
+```
+
+Then recreate/onboard the sandbox so the runtime env is applied:
+
+```bash
+export NEMOCLAW_RECREATE_SANDBOX=1
+nemoclaw onboard --resume
+```
+
+To return to secure mode, set it back to `0` (or unset) and recreate:
+
+```bash
+export NEMOCLAW_ALLOW_CONFIG_WRITES=0
+export NEMOCLAW_RECREATE_SANDBOX=1
+nemoclaw onboard --resume
+```
+
+Use writable mode only for controlled troubleshooting. Secure mode is recommended for normal operation.
+
 ### Uninstall
 
 To remove NemoClaw and all resources created during setup, run the uninstall script:

@@ -13,19 +13,16 @@ ARG BASE_IMAGE=ghcr.io/nvidia/nemoclaw/sandbox-base:latest
 
 # Stage 1: Build TypeScript plugin from source
 FROM node:22-slim@sha256:4f77a690f2f8946ab16fe1e791a3ac0667ae1c3575c3e4d0d4589e9ed5bfaf3d AS builder
-COPY nemoclaw/package.json nemoclaw/tsconfig.json /opt/nemoclaw/
+COPY nemoclaw/package.json nemoclaw/package-lock.json nemoclaw/tsconfig.json /opt/nemoclaw/
 COPY nemoclaw/src/ /opt/nemoclaw/src/
 WORKDIR /opt/nemoclaw
-RUN npm install && npm run build
+RUN npm ci && npm run build
 
 # Stage 2: Runtime image — pull cached base from GHCR
 FROM ${BASE_IMAGE}
 
-# Harden: remove unnecessary build tools and network probes from base image (#830)
-RUN (apt-get remove --purge -y gcc gcc-12 g++ g++-12 cpp cpp-12 make \
-        netcat-openbsd netcat-traditional ncat 2>/dev/null || true) \
-    && apt-get autoremove --purge -y \
-    && rm -rf /var/lib/apt/lists/*
+# Base image provides system packages, users/groups, openclaw runtime layout,
+# global tooling (openclaw, playwright, mcporter, etc.), and Python deps.
 
 # Copy built plugin and blueprint into the sandbox
 COPY --from=builder /opt/nemoclaw/dist/ /opt/nemoclaw/dist/
@@ -79,12 +76,13 @@ WORKDIR /sandbox
 USER sandbox
 
 # Write the COMPLETE openclaw.json including gateway config and auth token.
-# This file is immutable at runtime (Landlock read-only on /sandbox/.openclaw).
-# No runtime writes to openclaw.json are needed or possible.
+# Default runtime mode is secure (read-only + integrity hash enforced).
+# Optional runtime override NEMOCLAW_ALLOW_CONFIG_WRITES=1 can relax this at
+# container start for controlled debugging workflows.
 # Build args (NEMOCLAW_MODEL, CHAT_UI_URL) customize per deployment.
 # Auth token is generated per build so each image has a unique token.
 RUN python3 -c "\
-import base64, json, os, secrets; \
+import json, os, secrets; \
 from urllib.parse import urlparse; \
 model = os.environ['NEMOCLAW_MODEL']; \
 chat_ui_url = os.environ['CHAT_UI_URL']; \
@@ -98,25 +96,28 @@ parsed = urlparse(chat_ui_url); \
 chat_origin = f'{parsed.scheme}://{parsed.netloc}' if parsed.scheme and parsed.netloc else 'http://127.0.0.1:18789'; \
 origins = ['http://127.0.0.1:18789']; \
 origins = list(dict.fromkeys(origins + [chat_origin])); \
-disable_device_auth = os.environ.get('NEMOCLAW_DISABLE_DEVICE_AUTH', '') == '1'; \
-allow_insecure = parsed.scheme == 'http'; \
-providers = { \
-    provider_key: { \
-        'baseUrl': inference_base_url, \
-        'apiKey': 'unused', \
-        'api': inference_api, \
-        'models': [{**({'compat': inference_compat} if inference_compat else {}), 'id': model, 'name': primary_model_ref, 'reasoning': False, 'input': ['text'], 'cost': {'input': 0, 'output': 0, 'cacheRead': 0, 'cacheWrite': 0}, 'contextWindow': 131072, 'maxTokens': 4096}] \
-    } \
-}; \
 config = { \
-    'agents': {'defaults': {'model': {'primary': primary_model_ref}}}, \
-    'models': {'mode': 'merge', 'providers': providers}, \
+    'agents': {'defaults': {'model': {'primary': f'inference/{model}'}}}, \
+    'models': {'mode': 'merge', 'providers': { \
+        'nvidia': { \
+            'baseUrl': 'https://inference.local/v1', \
+            'apiKey': 'openshell-managed', \
+            'api': 'openai-completions', \
+            'models': [{'id': model.split('/')[-1], 'name': model, 'reasoning': False, 'input': ['text'], 'cost': {'input': 0, 'output': 0, 'cacheRead': 0, 'cacheWrite': 0}, 'contextWindow': 131072, 'maxTokens': 4096}] \
+        }, \
+        'inference': { \
+            'baseUrl': 'https://inference.local/v1', \
+            'apiKey': 'unused', \
+            'api': 'openai-completions', \
+            'models': [{'id': model, 'name': model, 'reasoning': False, 'input': ['text'], 'cost': {'input': 0, 'output': 0, 'cacheRead': 0, 'cacheWrite': 0}, 'contextWindow': 131072, 'maxTokens': 4096}] \
+        } \
+    }}, \
     'channels': {'defaults': {'configWrites': False}}, \
     'gateway': { \
         'mode': 'local', \
         'controlUi': { \
-            'allowInsecureAuth': allow_insecure, \
-            'dangerouslyDisableDeviceAuth': disable_device_auth, \
+            'allowInsecureAuth': True, \
+            'dangerouslyDisableDeviceAuth': True, \
             'allowedOrigins': origins, \
         }, \
         'trustedProxies': ['127.0.0.1', '::1'], \
@@ -159,15 +160,18 @@ RUN openclaw doctor --fix > /dev/null 2>&1 || true \
 USER root
 RUN chown root:root /sandbox/.openclaw \
     && find /sandbox/.openclaw -mindepth 1 -maxdepth 1 -exec chown -h root:root {} + \
-    && chmod 755 /sandbox/.openclaw \
+    && chmod 1777 /sandbox/.openclaw \
     && chmod 444 /sandbox/.openclaw/openclaw.json
+USER sandbox
 
 # Pin config hash at build time so the entrypoint can verify integrity.
 # Prevents the agent from creating a copy with a tampered config and
 # restarting the gateway pointing at it.
+USER root
 RUN sha256sum /sandbox/.openclaw/openclaw.json > /sandbox/.openclaw/.config-hash \
     && chmod 444 /sandbox/.openclaw/.config-hash \
     && chown root:root /sandbox/.openclaw/.config-hash
+USER sandbox
 
 # Entrypoint runs as root to start the gateway as the gateway user,
 # then drops to sandbox for agent commands. See nemoclaw-start.sh.
