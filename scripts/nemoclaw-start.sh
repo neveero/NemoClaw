@@ -127,7 +127,7 @@ verify_config_integrity() {
 
 set_config_writes_flag() {
   local enabled="$1"
-  python3 - <<'PYCFG' "$enabled"
+  python3 - "$enabled" <<'PYCFG'
 import json
 import sys
 
@@ -173,7 +173,7 @@ apply_runtime_config_mode() {
     find /sandbox/.openclaw -mindepth 1 -maxdepth 1 -exec chown -h root:root {} + 2>/dev/null || true
     chmod 1777 /sandbox/.openclaw 2>/dev/null || true
     chmod 444 /sandbox/.openclaw/openclaw.json 2>/dev/null || true
-    sha256sum /sandbox/.openclaw/openclaw.json > /sandbox/.openclaw/.config-hash
+    sha256sum /sandbox/.openclaw/openclaw.json >/sandbox/.openclaw/.config-hash
     chmod 444 /sandbox/.openclaw/.config-hash
     chown root:root /sandbox/.openclaw/.config-hash
   fi
