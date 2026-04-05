@@ -207,6 +207,7 @@ describe("service environment", () => {
           `cp "${fakeScript}" "$FAKE_REPO/scripts/telegram-bridge.js"`,
           // Source the start function from the real script, then call it with our fake repo
           `export SANDBOX_NAME="test-box"`,
+          `export NEMOCLAW_SANDBOX="test-box"`,
           `export TELEGRAM_BOT_TOKEN="test-token"`,
           `export NVIDIA_API_KEY="test-key"`,
           `export ALLOWED_CHAT_IDS="111,222,333"`,
@@ -232,7 +233,7 @@ describe("service environment", () => {
 
       const childEnv = readFileSync(envDump, "utf-8");
       expect(childEnv).toContain("ALLOWED_CHAT_IDS=111,222,333");
-      expect(childEnv).toContain("SANDBOX_NAME=test-box");
+      expect(childEnv).toMatch(/(^|\n)(SANDBOX_NAME|NEMOCLAW_SANDBOX)=test-box(\n|$)/);
       expect(childEnv).toContain("TELEGRAM_BOT_TOKEN=test-token");
       expect(childEnv).toContain("NVIDIA_API_KEY=test-key");
     });
