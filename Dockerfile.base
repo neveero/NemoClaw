@@ -154,6 +154,12 @@ RUN npm install -g openclaw@2026.3.11
 # Install Codex CLI.
 RUN npm install -g codex
 
+# Install Whisper CLI helper.
+RUN npm install -g whisper || true
+
+# Install xurl CLI helper.
+RUN npm install -g xurl || true
+
 # Install MCPorter CLI.
 RUN npm install -g mcporter
 

@@ -20,3 +20,5 @@ network_policies:
           - allow: { method: GET, path: "/file/bot*/**" }
     binaries:
       - { path: /usr/local/bin/node }
+      - { path: /usr/local/bin/whisper }
+      - { path: /usr/local/bin/xurl }
