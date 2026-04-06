@@ -275,6 +275,7 @@ usage() {
   printf "    BRAVE_API_KEY                 Enable Brave Search with this API key (stored in sandbox OpenClaw config)\n"
   printf "    GOOGLE_PLACES_API_KEY         Optional skill integration key\n"
   printf "    GEMINI_API_KEY                Optional skill integration key\n"
+  printf "    MATON_API_KEY                 Optional skill integration key\n"
   printf "    NOTION_API_KEY                Optional skill integration key\n"
   printf "    ELEVENLABS_API_KEY            Optional skill integration key\n"
   printf "    SHERPA_ONNX_RUNTIME_DIR       Optional skill integration path\n"

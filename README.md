@@ -134,6 +134,7 @@ Optional skill integration env placeholders (set only if you use those skills):
 ```bash
 export GOOGLE_PLACES_API_KEY=''
 export GEMINI_API_KEY=''
+export MATON_API_KEY=''
 export NOTION_API_KEY=''
 export ELEVENLABS_API_KEY=''
 export SHERPA_ONNX_RUNTIME_DIR=''
