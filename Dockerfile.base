@@ -61,6 +61,10 @@ RUN (apt-get remove --purge -y gcc gcc-12 g++ g++-12 cpp cpp-12 make \
         python3-pip \
         python3-venv \
         curl \
+        gnupg \
+        golang-go \
+        cargo \
+        rustc \
         git \
         ca-certificates \
         awscli \
@@ -147,6 +151,49 @@ RUN mkdir -p /sandbox/.openclaw-data/agents/main/agent \
     && ln -s /sandbox/.openclaw-data/update-check.json /sandbox/.openclaw/update-check.json \
     && chown -R sandbox:sandbox /sandbox/.openclaw /sandbox/.openclaw-data
 
+# Install 1Password CLI from the official apt repository.
+# hadolint ignore=DL4006
+RUN set -eux; \
+    curl -fsSL https://downloads.1password.com/linux/keys/1password.asc \
+      | gpg --dearmor -o /usr/share/keyrings/1password-archive-keyring.gpg; \
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/1password-archive-keyring.gpg] https://downloads.1password.com/linux/debian/$(dpkg --print-architecture) stable main" \
+      > /etc/apt/sources.list.d/1password.list; \
+    mkdir -p /etc/debsig/policies/AC2D62742012EA22/; \
+    curl -fsSL https://downloads.1password.com/linux/debian/debsig/1password.pol \
+      > /etc/debsig/policies/AC2D62742012EA22/1password.pol; \
+    mkdir -p /usr/share/debsig/keyrings/AC2D62742012EA22; \
+    curl -fsSL https://downloads.1password.com/linux/keys/1password.asc \
+      | gpg --dearmor -o /usr/share/debsig/keyrings/AC2D62742012EA22/debsig.gpg; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends 1password-cli; \
+    rm -rf /var/lib/apt/lists/*; \
+    command -v op
+
+# Install blogwatcher via Go (Linux-friendly alternative to Homebrew).
+RUN set -eux; \
+    GOBIN=/usr/local/bin go install github.com/Hyaxia/blogwatcher/cmd/blogwatcher@v0.1.4; \
+    command -v blogwatcher
+
+# Install gogcli via Go.
+RUN set -eux; \
+    GOBIN=/usr/local/bin go install github.com/steipete/gogcli/cmd/gog@v0.14.0; \
+    command -v gog
+
+# Install openhue CLI via Go.
+RUN set -eux; \
+    GOBIN=/usr/local/bin go install github.com/openhue/openhue-cli@v0.9.1; \
+    command -v openhue
+
+# Install wacli via Go.
+RUN set -eux; \
+    GOBIN=/usr/local/bin go install github.com/steipete/wacli/cmd/wacli@v0.2.0; \
+    command -v wacli
+
+# Install himalaya via cargo.
+RUN set -eux; \
+    cargo install himalaya --locked --root /usr/local; \
+    command -v himalaya
+
 # Install OpenClaw CLI.
 # When bumping the openclaw version, rebuild this base image.
 RUN npm install -g openclaw@2026.3.11
@@ -186,7 +233,7 @@ RUN set -eux; \
     install_candidates nano-pdf nano-pdf; \
     install_candidates obsidian-cli obsidian-cli; \
     install_candidates openhue openhue; \
-    install_candidates oracle oracle; \
+    install_candidates oracle @steipete/oracle oracle; \
     install_candidates ordercli ordercli; \
     install_candidates sag sag; \
     install_candidates songsee songsee; \

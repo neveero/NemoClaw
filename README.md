@@ -129,6 +129,21 @@ source ~/.profile
 sudo loginctl enable-linger "$USER"
 ```
 
+Optional skill integration env placeholders (set only if you use those skills):
+
+```bash
+export GOOGLE_PLACES_API_KEY=''
+export GEMINI_API_KEY=''
+export NOTION_API_KEY=''
+export ELEVENLABS_API_KEY=''
+export SHERPA_ONNX_RUNTIME_DIR=''
+export SHERPA_ONNX_MODEL_DIR=''
+export TRELLO_API_KEY=''
+export TRELLO_TOKEN=''
+```
+
+When these are exported before running the setup/onboard scripts, they are available for provider/bootstrap pass-through in the host-side helper flow.
+
 If you want OpenClaw native `cron --announce --channel telegram` delivery (instead of host-side bridge delivery), export `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` before `nemoclaw onboard`. NemoClaw now bakes Telegram channel config into sandbox `openclaw.json` at build time when these variables are present.
 
 Recommended split-chat setup:
