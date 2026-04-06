@@ -17,6 +17,8 @@
 #                                 is baked at image build and verified by hash at startup.
 #   NEMOCLAW_ALLOW_CONFIG_WRITES  Runtime toggle. Set to "1" to allow openclaw.json writes
 #                                 by skipping hash enforcement and immutable filesystem flags.
+#   NEMOCLAW_SYNC_ENV_TO_PROFILE  Runtime toggle (default "1"). When enabled, syncs exported
+#                                 env vars into /sandbox/.profile at startup.
 
 set -euo pipefail
 
@@ -395,6 +397,51 @@ _write_proxy_snippet() {
 if [ -w "$_SANDBOX_HOME" ]; then
   _write_proxy_snippet "${_SANDBOX_HOME}/.bashrc"
   _write_proxy_snippet "${_SANDBOX_HOME}/.profile"
+fi
+
+_write_env_sync_profile() {
+  local target="$1"
+  python3 - "$target" <<'PYENV'
+import os
+import re
+import shlex
+import sys
+
+target = sys.argv[1]
+start = "# nemoclaw-env-sync begin"
+end = "# nemoclaw-env-sync end"
+name_re = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+
+try:
+    existing = open(target, encoding="utf-8").read()
+except FileNotFoundError:
+    existing = ""
+
+if start in existing and end in existing:
+    pre = existing.split(start, 1)[0].rstrip()
+else:
+    pre = existing.rstrip()
+
+lines = [start]
+for key, value in sorted(os.environ.items()):
+    if not name_re.match(key):
+        continue
+    if "\n" in value or "\r" in value:
+        continue
+    lines.append(f"export {key}={shlex.quote(value)}")
+lines.append(end)
+
+prefix = f"{pre}\n\n" if pre else ""
+with open(target, "w", encoding="utf-8") as fh:
+    fh.write(prefix + "\n".join(lines) + "\n")
+PYENV
+}
+
+if [ "${NEMOCLAW_SYNC_ENV_TO_PROFILE:-1}" = "1" ] && [ -w "$_SANDBOX_HOME" ]; then
+  _write_env_sync_profile "${_SANDBOX_HOME}/.profile"
+  if [ "$(id -u)" -eq 0 ]; then
+    chown sandbox:sandbox "${_SANDBOX_HOME}/.profile" 2>/dev/null || true
+  fi
 fi
 
 # ── Main ─────────────────────────────────────────────────────────

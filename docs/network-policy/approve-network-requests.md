@@ -20,17 +20,20 @@ status: published
   SPDX-License-Identifier: Apache-2.0
 -->
 
-# Approve or Deny Agent Network Requests
+Approve or Deny Agent Network Requests
+======================================
 
 Review and act on network requests that the agent makes to endpoints not listed in the sandbox policy.
 OpenShell intercepts these requests and presents them in the TUI for operator approval.
 
-## Prerequisites
+Prerequisites
+-------------
 
 - A running NemoClaw sandbox.
 - The OpenShell CLI on your `PATH`.
 
-## Open the TUI
+Open the TUI
+------------
 
 Start the OpenShell terminal UI to monitor sandbox activity:
 
@@ -46,7 +49,8 @@ $ ssh my-gpu-box 'cd /home/ubuntu/nemoclaw && . .env && openshell term'
 
 The TUI displays the sandbox state, active inference provider, and a live feed of network activity.
 
-## Trigger a Blocked Request
+Trigger a Blocked Request
+-------------------------
 
 When the agent attempts to reach an endpoint that is not in the baseline policy, OpenShell blocks the connection and displays the request in the TUI.
 The blocked request includes the following details:
@@ -55,7 +59,8 @@ The blocked request includes the following details:
 - **Binary** that initiated the request.
 - **HTTP method** and path, if available.
 
-## Approve or Deny the Request
+Approve or Deny the Request
+---------------------------
 
 The TUI presents an approval prompt for each blocked request.
 
@@ -65,7 +70,8 @@ The TUI presents an approval prompt for each blocked request.
 Approved endpoints remain in the running policy until the sandbox stops.
 They are not persisted to the baseline policy file.
 
-## Run the Walkthrough
+Run the Walkthrough
+-------------------
 
 To observe the approval flow in a guided session, run the walkthrough script:
 
@@ -76,7 +82,8 @@ $ ./scripts/walkthrough.sh
 This script opens a split tmux session with the TUI on the left and the agent on the right.
 The walkthrough requires tmux and the `NVIDIA_API_KEY` environment variable.
 
-## Related Topics
+Related Topics
+--------------
 
 - [Customize the Sandbox Network Policy](customize-network-policy.md) to add endpoints permanently.
 - [Network Policies](../reference/network-policies.md) for the full baseline policy reference.
