@@ -171,6 +171,12 @@ Restart and verify all services:
 ./scripts/restart-headless-services.sh my-assistant
 ```
 
+One-command rebuild + recreate + headless restart (with clean summary output):
+
+```bash
+./scripts/rebuild-headless-stack.sh --sandbox my-assistant --provider openai --model gpt-5.4-mini
+```
+
 For scheduler-to-Telegram market briefings, also set `TELEGRAM_CHAT_ID` and run:
 
 ```bash
@@ -185,6 +191,7 @@ The public entrypoints are:
 - `scripts/setup-headless-services.sh`
 - `scripts/restart-headless-services.sh`
 - `scripts/run-scheduled-agent.sh`
+- `scripts/rebuild-headless-stack.sh`
 
 These are wrappers that execute private helper implementations from `NEMOCLAW_PRIVATE_HELPERS_DIR`.
 Set it explicitly to your private helper repo `bin/` directory before running wrappers:
