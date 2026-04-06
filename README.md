@@ -163,11 +163,19 @@ For scheduler-to-Telegram market briefings, also set `TELEGRAM_CHAT_ID` and run:
 
 The scheduler script sends directly to Telegram Bot API (`sendMessage`) and does not depend on OpenClaw `delivery.mode=announce` channels.
 
-The helper scripts live in:
+The public entrypoints are:
 
+- `scripts/create-sandbox.sh`
 - `scripts/setup-headless-services.sh`
 - `scripts/restart-headless-services.sh`
 - `scripts/run-scheduled-agent.sh`
+
+These are wrappers that execute private helper implementations from `NEMOCLAW_PRIVATE_HELPERS_DIR`.
+Set it explicitly to your private helper repo `bin/` directory before running wrappers:
+
+```bash
+export NEMOCLAW_PRIVATE_HELPERS_DIR="$HOME/nemoclaw-private-ops/bin"
+```
 
 ### Toggle OpenClaw Config Writability
 

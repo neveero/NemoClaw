@@ -11,7 +11,7 @@ if [ -z "$PRIVATE_HELPERS_DIR" ]; then
   exit 1
 fi
 
-TARGET="${PRIVATE_HELPERS_DIR}/setup-headless-services.sh"
+TARGET="${PRIVATE_HELPERS_DIR}/create-sandbox.sh"
 
 if [ ! -x "$TARGET" ]; then
   echo "Missing private helper: $TARGET" >&2

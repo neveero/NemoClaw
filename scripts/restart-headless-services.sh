@@ -4,24 +4,19 @@
 
 set -euo pipefail
 
-SANDBOX_NAME="${1:-${NEMOCLAW_SANDBOX:-my-assistant}}"
+PRIVATE_HELPERS_DIR="${NEMOCLAW_PRIVATE_HELPERS_DIR:-}"
+if [ -z "$PRIVATE_HELPERS_DIR" ]; then
+  echo "NEMOCLAW_PRIVATE_HELPERS_DIR is required." >&2
+  echo "Set it to your private helpers repo bin path (example: \$HOME/nemoclaw-private-ops/bin)." >&2
+  exit 1
+fi
 
-echo "[restart] telegram bridge"
-systemctl --user restart telegram-bridge-nemoclaw
+TARGET="${PRIVATE_HELPERS_DIR}/restart-headless-services.sh"
 
-echo "[restart] openshell forward"
-openshell forward stop 18789 || true
-openshell forward start --background 18789 "$SANDBOX_NAME"
-systemctl --user restart openshell-forward-18789 || true
+if [ ! -x "$TARGET" ]; then
+  echo "Missing private helper: $TARGET" >&2
+  echo "Set NEMOCLAW_PRIVATE_HELPERS_DIR to your private helpers repo/bin path." >&2
+  exit 1
+fi
 
-echo "[restart] cloudflared tunnel"
-systemctl --user restart cloudflared-nemoclaw
-
-echo "[restart] scheduler"
-systemctl --user restart openclaw-scheduler.timer
-systemctl --user start openclaw-scheduler.service || true
-
-echo "[status]"
-systemctl --user status telegram-bridge-nemoclaw cloudflared-nemoclaw --no-pager
-systemctl --user status openclaw-scheduler.timer --no-pager
-curl -I http://127.0.0.1:18789/
+exec "$TARGET" "$@"

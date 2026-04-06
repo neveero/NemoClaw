@@ -151,19 +151,28 @@ RUN mkdir -p /sandbox/.openclaw-data/agents/main/agent \
 # When bumping the openclaw version, rebuild this base image.
 RUN npm install -g openclaw@2026.3.11
 
-# Install Codex CLI.
-RUN npm install -g codex
+# Install OpenAI Codex CLI.
+RUN npm install -g @openai/codex \
+    && command -v codex
 
-# Install Whisper CLI helper.
-RUN npm install -g whisper || true
-
-# Install xurl CLI helper.
-RUN npm install -g xurl || true
+# Install xurl CLI helper (fail build if binary is missing).
+RUN npm install -g xurl \
+    && command -v xurl
 
 # Install optional Linux-capable skill CLIs (best effort).
-# macOS-only tools and config/env-only integrations are not installable as bins.
-RUN npm install -g @google/gemini-cli || true \
-    && npm install -g op blogwatcher blu camsnap eightctl gifgrep gog goplaces nano-pdf obsidian-cli openhue oracle ordercli sag songsee sonos summarize wacli codexbar spogo spotify_player himalaya || true
+# Notes:
+# - macOS-only tools (memo, remindctl, grizzly, imsg, things, peekaboo) are not installable here.
+# - Config/env-only requirements (Slack/Discord/Trello/Notion/etc.) are not binaries.
+# - Some CLIs below may not publish npm packages; install continues on failures.
+RUN set -eux; \
+    npm install -g @google/gemini-cli || true; \
+    for pkg in \
+      @1password/op op \
+      blogwatcher blu blucli camsnap eightctl gifgrep gog goplaces \
+      himalaya codexbar nano-pdf obsidian-cli openhue oracle ordercli \
+      sag songsee sonos sonoscli spogo spotify_player summarize wacli; do \
+      npm install -g "$pkg" || true; \
+    done
 
 # Install MCPorter CLI.
 RUN npm install -g mcporter
