@@ -214,7 +214,8 @@ RUN npm install -g @xdevplatform/xurl \
 # Notes:
 # - macOS-only tools (memo, remindctl, grizzly, imsg, things, peekaboo, codexbar) are excluded.
 # - Config/env-only requirements (Slack/Discord/Trello/Notion/etc.) are excluded.
-# - Build fails if any required Linux bin below is still missing after candidate installs.
+# - Missing bins are reported as warnings only (no build failure), because some
+#   upstream tools do not provide stable Linux install paths.
 RUN set -eux; \
     missing=""; \
     install_candidates() { \
@@ -247,8 +248,7 @@ RUN set -eux; \
     install_candidates spogo spogo spotify_player; \
     install_candidates whisper @openai/whisper openai-whisper-cli whisper-cli whisper; \
     if [ -n "${missing# }" ]; then \
-      echo "Required Linux skill binaries missing:${missing}" >&2; \
-      exit 1; \
+      echo "Optional Linux skill binaries missing:${missing}" >&2; \
     fi
 
 # Install MCPorter CLI.
