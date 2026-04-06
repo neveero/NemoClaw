@@ -169,11 +169,11 @@ RUN set -eux; \
     rm -rf /var/lib/apt/lists/*; \
     command -v op
 
-# Install blogwatcher via Go (Linux-friendly alternative to Homebrew).
+# Install blogwatcher via Go (best effort; upstream currently requires newer Go).
 # hadolint ignore=DL3062
 RUN set -eux; \
-    GOBIN=/usr/local/bin go install github.com/Hyaxia/blogwatcher/cmd/blogwatcher@latest; \
-    command -v blogwatcher
+    GOBIN=/usr/local/bin go install github.com/Hyaxia/blogwatcher/cmd/blogwatcher@latest || true; \
+    command -v blogwatcher || true
 
 # Install gogcli via Go.
 RUN set -eux; \
@@ -224,7 +224,6 @@ RUN set -eux; \
       missing="${missing} ${bin}"; \
     }; \
     install_candidates op @1password/op op; \
-    install_candidates blogwatcher blogwatcher; \
     install_candidates blu blu blucli; \
     install_candidates camsnap camsnap; \
     install_candidates eightctl eightctl; \
