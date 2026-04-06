@@ -131,6 +131,16 @@ sudo loginctl enable-linger "$USER"
 
 If you want OpenClaw native `cron --announce --channel telegram` delivery (instead of host-side bridge delivery), export `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` before `nemoclaw onboard`. NemoClaw now bakes Telegram channel config into sandbox `openclaw.json` at build time when these variables are present.
 
+Recommended split-chat setup:
+
+```bash
+export TELEGRAM_ANNOUNCE_CHAT_ID=1504988997
+export TELEGRAM_INTERACTIVE_CHAT_ID=-5216619575
+./scripts/setup-headless-services.sh --sandbox my-assistant
+```
+
+`TELEGRAM_ANNOUNCE_CHAT_ID` maps to `TELEGRAM_CHAT_ID` for scheduler announcements, while `TELEGRAM_INTERACTIVE_CHAT_ID` maps to bridge `ALLOWED_CHAT_IDS` so interactive bridge replies stay in a separate chat. Backward-compatible vars (`TELEGRAM_CHAT_ID`, `ALLOWED_CHAT_IDS`) still work.
+
 This setup installs an `openclaw-scheduler.timer` with default cadence every 10 minutes (`OnCalendar=*:0/10`).
 Override schedule before setup with:
 

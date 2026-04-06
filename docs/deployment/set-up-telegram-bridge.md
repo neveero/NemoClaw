@@ -47,6 +47,18 @@ $ export TELEGRAM_CHAT_ID=<your-chat-id>      # optional, for scheduler announce
 
 When these variables are set before `nemoclaw onboard`, NemoClaw can bake Telegram channel config into sandbox `openclaw.json`, which enables OpenClaw native cron `--announce --channel telegram` delivery even when runtime config writes are disabled.
 
+For split-chat operation (recommended), use:
+
+```console
+$ export TELEGRAM_ANNOUNCE_CHAT_ID=<cron-announcements-chat-id>
+$ export TELEGRAM_INTERACTIVE_CHAT_ID=<bridge-interactive-chat-id>
+```
+
+`setup-headless-services.sh` maps these to:
+
+- `TELEGRAM_CHAT_ID` for scheduler announcements
+- `ALLOWED_CHAT_IDS` for bridge interactive access control
+
 ## Start Auxiliary Services
 
 Start the Telegram bridge and other auxiliary services:
