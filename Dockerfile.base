@@ -161,18 +161,45 @@ RUN npm install -g @xdevplatform/xurl \
 
 # Install optional Linux-capable skill CLIs (best effort).
 # Notes:
-# - macOS-only tools (memo, remindctl, grizzly, imsg, things, peekaboo) are not installable here.
-# - Config/env-only requirements (Slack/Discord/Trello/Notion/etc.) are not binaries.
-# - Some CLIs below may not publish npm packages; install continues on failures.
+# - macOS-only tools (memo, remindctl, grizzly, imsg, things, peekaboo, codexbar) are excluded.
+# - Config/env-only requirements (Slack/Discord/Trello/Notion/etc.) are excluded.
+# - Build fails if any required Linux bin below is still missing after candidate installs.
 RUN set -eux; \
-    npm install -g @google/gemini-cli || true; \
-    for pkg in \
-      @1password/op op \
-      blogwatcher blu blucli camsnap eightctl gifgrep gog goplaces \
-      himalaya codexbar nano-pdf obsidian-cli openhue oracle ordercli \
-      sag songsee sonos sonoscli spogo spotify_player summarize wacli; do \
-      npm install -g "$pkg" || true; \
-    done
+    missing=""; \
+    install_candidates() { \
+      bin="$1"; shift; \
+      if command -v "$bin" >/dev/null 2>&1; then return 0; fi; \
+      for pkg in "$@"; do \
+        npm install -g "$pkg" >/dev/null 2>&1 || true; \
+        if command -v "$bin" >/dev/null 2>&1; then return 0; fi; \
+      done; \
+      missing="${missing} ${bin}"; \
+    }; \
+    install_candidates op @1password/op op; \
+    install_candidates blogwatcher blogwatcher; \
+    install_candidates blu blu blucli; \
+    install_candidates camsnap camsnap; \
+    install_candidates eightctl eightctl; \
+    install_candidates gifgrep gifgrep; \
+    install_candidates gog gog; \
+    install_candidates himalaya himalaya; \
+    install_candidates nano-pdf nano-pdf; \
+    install_candidates obsidian-cli obsidian-cli; \
+    install_candidates openhue openhue; \
+    install_candidates oracle oracle; \
+    install_candidates ordercli ordercli; \
+    install_candidates sag sag; \
+    install_candidates songsee songsee; \
+    install_candidates sonos sonos sonoscli; \
+    install_candidates wacli wacli; \
+    install_candidates summarize summarize; \
+    install_candidates xurl @xdevplatform/xurl; \
+    install_candidates spogo spogo spotify_player; \
+    install_candidates whisper @openai/whisper openai-whisper-cli whisper-cli whisper; \
+    if [ -n "${missing# }" ]; then \
+      echo "Required Linux skill binaries missing:${missing}" >&2; \
+      exit 1; \
+    fi
 
 # Install MCPorter CLI.
 RUN npm install -g mcporter
