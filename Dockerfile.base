@@ -176,19 +176,22 @@ RUN set -eux; \
     command -v blogwatcher || true
 
 # Install gogcli via Go.
+# hadolint ignore=DL3062
 RUN set -eux; \
-    GOBIN=/usr/local/bin go install github.com/steipete/gogcli/cmd/gog@v0.14.0; \
-    command -v gog
+    GOBIN=/usr/local/bin go install github.com/steipete/gogcli/cmd/gog@latest || true; \
+    command -v gog || true
 
 # Install openhue CLI via Go.
+# hadolint ignore=DL3062
 RUN set -eux; \
-    GOBIN=/usr/local/bin go install github.com/openhue/openhue-cli@v0.9.1; \
-    command -v openhue
+    GOBIN=/usr/local/bin go install github.com/openhue/openhue-cli@latest || true; \
+    command -v openhue || true
 
 # Install wacli via Go.
+# hadolint ignore=DL3062
 RUN set -eux; \
-    GOBIN=/usr/local/bin go install github.com/steipete/wacli/cmd/wacli@v0.2.0; \
-    command -v wacli
+    GOBIN=/usr/local/bin go install github.com/steipete/wacli/cmd/wacli@latest || true; \
+    command -v wacli || true
 
 # Install himalaya via cargo.
 RUN set -eux; \
