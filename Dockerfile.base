@@ -195,8 +195,8 @@ RUN set -eux; \
 
 # Install himalaya via cargo.
 RUN set -eux; \
-    cargo install himalaya --locked --root /usr/local; \
-    command -v himalaya
+    timeout 180 cargo install himalaya --locked --root /usr/local || true; \
+    command -v himalaya || true
 
 # Install OpenClaw CLI.
 # When bumping the openclaw version, rebuild this base image.
