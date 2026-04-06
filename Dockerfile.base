@@ -170,8 +170,9 @@ RUN set -eux; \
     command -v op
 
 # Install blogwatcher via Go (Linux-friendly alternative to Homebrew).
+# hadolint ignore=DL3062
 RUN set -eux; \
-    GOBIN=/usr/local/bin go install github.com/Hyaxia/blogwatcher/cmd/blogwatcher@v0.1.4; \
+    GOBIN=/usr/local/bin go install github.com/Hyaxia/blogwatcher/cmd/blogwatcher@latest; \
     command -v blogwatcher
 
 # Install gogcli via Go.
