@@ -1701,6 +1701,45 @@ async function preflight() {
     console.log("  ✓ Previous session cleaned up");
   }
 
+  // Clean up orphaned Docker containers from interrupted onboard (e.g. Ctrl+C
+  // during gateway start). The container may still be running even though
+  // OpenShell has no metadata for it (gatewayReuseState === "missing").
+  if (gatewayReuseState === "missing") {
+    const containerName = `openshell-cluster-${GATEWAY_NAME}`;
+    const inspectResult = run(
+      `docker inspect --type container --format '{{.State.Status}}' ${containerName} 2>/dev/null`,
+      { ignoreError: true, suppressOutput: true },
+    );
+    if (inspectResult.status === 0) {
+      console.log("  Cleaning up orphaned gateway container...");
+      run(`docker stop ${containerName} >/dev/null 2>&1`, {
+        ignoreError: true,
+        suppressOutput: true,
+      });
+      run(`docker rm ${containerName} >/dev/null 2>&1`, {
+        ignoreError: true,
+        suppressOutput: true,
+      });
+      const postInspectResult = run(
+        `docker inspect --type container ${containerName} 2>/dev/null`,
+        {
+          ignoreError: true,
+          suppressOutput: true,
+        },
+      );
+      if (postInspectResult.status !== 0) {
+        run(
+          `docker volume ls -q --filter "name=openshell-cluster-${GATEWAY_NAME}" | grep . && docker volume ls -q --filter "name=openshell-cluster-${GATEWAY_NAME}" | xargs docker volume rm 2>/dev/null || true`,
+          { ignoreError: true, suppressOutput: true },
+        );
+        registry.clearAll();
+        console.log("  ✓ Orphaned gateway container removed");
+      } else {
+        console.warn("  ! Found an orphaned gateway container, but automatic cleanup failed.");
+      }
+    }
+  }
+
   // Required ports — gateway (8080) and dashboard (18789)
   const requiredPorts = [
     { port: 8080, label: "OpenShell gateway" },
