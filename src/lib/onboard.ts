@@ -960,6 +960,7 @@ function patchStagedDockerfile(
   discordGuilds = {},
 ) {
   const SKILL_ENV_KEYS = [
+    "OPENAI_API_KEY",
     "TRELLO_API_KEY",
     "TRELLO_TOKEN",
     "GOOGLE_PLACES_API_KEY",

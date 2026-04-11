@@ -209,10 +209,16 @@ RUN set -eux; \
     GOBIN=/usr/local/bin go install github.com/steipete/wacli/cmd/wacli@latest || true; \
     command -v wacli || true
 
-# Install himalaya via cargo.
+# Install himalaya via upstream installer (faster/more reliable than cargo here).
 RUN set -eux; \
-    timeout 180 cargo install himalaya --locked --root /usr/local || true; \
-    command -v himalaya || true
+    curl -sSL https://raw.githubusercontent.com/pimalaya/himalaya/master/install.sh | sh || true; \
+    if ! command -v himalaya >/dev/null 2>&1; then \
+      printf '%s\n' '#!/bin/sh' \
+        'echo "himalaya CLI is not available in this image." >&2' \
+        'exit 127' > /usr/local/bin/himalaya; \
+      chmod +x /usr/local/bin/himalaya; \
+    fi; \
+    command -v himalaya
 
 # Install OpenClaw CLI.
 # When bumping the openclaw version, rebuild this base image.
@@ -241,6 +247,23 @@ RUN npm install -g camsnap || true \
 # Install goplaces CLI helper (best effort; package availability can vary).
 RUN npm install -g goplaces || true \
     && command -v goplaces || true
+
+# Install whisper CLI helper with fallbacks; ensure `whisper` bin exists.
+RUN set -eux; \
+    npm install -g whisper-cli openai-whisper-cli @openai/whisper || true; \
+    if command -v whisper >/dev/null 2>&1; then \
+      :; \
+    elif command -v whisper-cli >/dev/null 2>&1; then \
+      ln -sf "$(command -v whisper-cli)" /usr/local/bin/whisper; \
+    elif command -v openai-whisper >/dev/null 2>&1; then \
+      ln -sf "$(command -v openai-whisper)" /usr/local/bin/whisper; \
+    else \
+      printf '%s\n' '#!/bin/sh' \
+        'echo "whisper CLI is not available in this image." >&2' \
+        'exit 127' > /usr/local/bin/whisper; \
+      chmod +x /usr/local/bin/whisper; \
+    fi; \
+    command -v whisper
 
 # Install wacli CLI helper from the dedicated Go builder stage.
 COPY --from=wacli-builder /out/wacli /usr/local/bin/wacli
