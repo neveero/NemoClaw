@@ -150,6 +150,14 @@ RUN mkdir -p /sandbox/.openclaw-data/agents/main/agent \
 # When bumping the openclaw version, rebuild this base image.
 RUN npm install -g openclaw@2026.3.11
 
+# Install xurl CLI helper.
+RUN npm install -g @xdevplatform/xurl \
+    && command -v xurl
+
+# Install wacli CLI helper.
+RUN npm install -g @steipete/wacli \
+    && command -v wacli
+
 # Install MCPorter CLI.
 RUN npm install -g mcporter
 
