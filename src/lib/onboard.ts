@@ -959,6 +959,17 @@ function patchStagedDockerfile(
   messagingAllowedIds = {},
   discordGuilds = {},
 ) {
+  const SKILL_ENV_KEYS = [
+    "TRELLO_API_KEY",
+    "TRELLO_TOKEN",
+    "GOOGLE_PLACES_API_KEY",
+    "GEMINI_API_KEY",
+    "NOTION_API_KEY",
+    "ELEVENLABS_API_KEY",
+    "SHERPA_ONNX_RUNTIME_DIR",
+    "SHERPA_ONNX_MODEL_DIR",
+    "MATON_API_KEY",
+  ];
   const { providerKey, primaryModelRef, inferenceBaseUrl, inferenceApi, inferenceCompat } =
     getSandboxInferenceConfig(model, provider, preferredInferenceApi);
   let dockerfile = fs.readFileSync(dockerfilePath, "utf8");
@@ -1011,6 +1022,17 @@ function patchStagedDockerfile(
   dockerfile = dockerfile.replace(
     /^ARG NEMOCLAW_WEB_CONFIG_B64=.*$/m,
     `ARG NEMOCLAW_WEB_CONFIG_B64=${webSearch.buildWebSearchDockerConfig(webSearchConfig)}`,
+  );
+  const skillEnv: Record<string, string> = {};
+  for (const key of SKILL_ENV_KEYS) {
+    const value = process.env[key];
+    if (typeof value === "string" && value.length > 0) {
+      skillEnv[key] = value;
+    }
+  }
+  dockerfile = dockerfile.replace(
+    /^ARG NEMOCLAW_SKILL_ENV_B64=.*$/m,
+    `ARG NEMOCLAW_SKILL_ENV_B64=${encodeDockerJsonArg(skillEnv)}`,
   );
   // Onboard flow expects immediate dashboard access without device pairing,
   // so disable device auth for images built during onboard (see #1217).

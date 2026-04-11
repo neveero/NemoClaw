@@ -316,6 +316,73 @@ PYAUTOPAIR
   echo "[gateway] auto-pair watcher launched (pid $!)" >&2
 }
 
+# ── Skill env propagation ────────────────────────────────────────
+# Optional build-time payload of skill-specific env vars captured by onboard
+# from the host shell (typically sourced from host ~/.profile).
+# Format: base64-encoded JSON object in NEMOCLAW_SKILL_ENV_B64.
+_SKILL_ENV_B64="${NEMOCLAW_SKILL_ENV_B64:-e30=}"
+_SKILL_ENV_MARKER_BEGIN="# nemoclaw-skill-env begin"
+_SKILL_ENV_MARKER_END="# nemoclaw-skill-env end"
+_SKILL_ENV_SNIPPET=""
+
+hydrate_skill_env() {
+  local raw
+  raw="$(python3 - "$_SKILL_ENV_B64" <<'PY'
+import base64
+import json
+import sys
+
+payload = (sys.argv[1] or "e30=").strip()
+try:
+    decoded = base64.b64decode(payload).decode("utf-8")
+    data = json.loads(decoded) if decoded else {}
+except Exception:
+    data = {}
+
+if not isinstance(data, dict):
+    data = {}
+
+for k, v in data.items():
+    if not isinstance(k, str) or not k:
+        continue
+    if not isinstance(v, str):
+        continue
+    print(f"{k}\t{v}")
+PY
+)"
+
+  if [ -z "$raw" ]; then
+    return 0
+  fi
+
+  local snippet_lines=()
+  while IFS=$'\t' read -r key value; do
+    [ -n "${key:-}" ] || continue
+    export "${key}=${value}"
+    snippet_lines+=("export ${key}=$(printf '%q' "$value")")
+  done <<<"$raw"
+
+  if [ ${#snippet_lines[@]} -gt 0 ]; then
+    _SKILL_ENV_SNIPPET="${_SKILL_ENV_MARKER_BEGIN}"$'\n'"$(printf '%s\n' "${snippet_lines[@]}")"$'\n'"${_SKILL_ENV_MARKER_END}"
+  fi
+}
+
+_write_skill_env_snippet() {
+  local target="$1"
+  [ -n "$_SKILL_ENV_SNIPPET" ] || return 0
+  if [ -f "$target" ] && grep -qF "$_SKILL_ENV_MARKER_BEGIN" "$target" 2>/dev/null; then
+    local tmp
+    tmp="$(mktemp)"
+    awk -v b="$_SKILL_ENV_MARKER_BEGIN" -v e="$_SKILL_ENV_MARKER_END" \
+      '$0==b{s=1;next} $0==e{s=0;next} !s' "$target" >"$tmp"
+    printf '%s\n' "$_SKILL_ENV_SNIPPET" >>"$tmp"
+    cat "$tmp" >"$target"
+    rm -f "$tmp"
+    return 0
+  fi
+  printf '\n%s\n' "$_SKILL_ENV_SNIPPET" >>"$target"
+}
+
 # ── Proxy environment ────────────────────────────────────────────
 # OpenShell injects HTTP_PROXY/HTTPS_PROXY/NO_PROXY into the sandbox, but its
 # NO_PROXY is limited to 127.0.0.1,localhost,::1 — missing the gateway IP.
@@ -392,7 +459,10 @@ _write_proxy_snippet() {
   printf '\n%s\n' "$_PROXY_SNIPPET" >>"$target"
 }
 
+hydrate_skill_env
 if [ -w "$_SANDBOX_HOME" ]; then
+  _write_skill_env_snippet "${_SANDBOX_HOME}/.bashrc"
+  _write_skill_env_snippet "${_SANDBOX_HOME}/.profile"
   _write_proxy_snippet "${_SANDBOX_HOME}/.bashrc"
   _write_proxy_snippet "${_SANDBOX_HOME}/.profile"
 fi
