@@ -58,6 +58,15 @@ RUN apt-get update \
 
 RUN GOBIN=/out CGO_ENABLED=1 go install -tags sqlite_fts5 github.com/steipete/wacli/cmd/wacli@latest
 
+FROM golang:1.25-bookworm AS blogwatcher-builder
+
+# Build blogwatcher from source for Linux targets.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates git \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN GOBIN=/out go install github.com/Hyaxia/blogwatcher/cmd/blogwatcher@latest
+
 FROM node:22-slim@sha256:4f77a690f2f8946ab16fe1e791a3ac0667ae1c3575c3e4d0d4589e9ed5bfaf3d
 
 ENV DEBIAN_FRONTEND=noninteractive
@@ -178,11 +187,9 @@ RUN set -eux; \
     rm -rf /var/lib/apt/lists/*; \
     command -v op
 
-# Install blogwatcher via Go (best effort; upstream currently requires newer Go).
-# hadolint ignore=DL3062
-RUN set -eux; \
-    GOBIN=/usr/local/bin go install github.com/Hyaxia/blogwatcher/cmd/blogwatcher@latest || true; \
-    command -v blogwatcher || true
+# Install blogwatcher CLI helper from the dedicated Go builder stage.
+COPY --from=blogwatcher-builder /out/blogwatcher /usr/local/bin/blogwatcher
+RUN command -v blogwatcher
 
 # Install gogcli via Go.
 # hadolint ignore=DL3062
@@ -211,6 +218,10 @@ RUN set -eux; \
 # When bumping the openclaw version, rebuild this base image.
 RUN npm install -g openclaw@2026.3.11
 
+# Install Gemini CLI helper.
+RUN npm install -g @google/gemini-cli \
+    && command -v gemini
+
 # Install OpenAI Codex CLI.
 RUN npm install -g @openai/codex \
     && command -v codex
@@ -218,6 +229,14 @@ RUN npm install -g @openai/codex \
 # Install xurl CLI helper.
 RUN npm install -g @xdevplatform/xurl \
     && command -v xurl
+
+# Install gifgrep CLI helper.
+RUN npm install -g gifgrep \
+    && command -v gifgrep
+
+# Install camsnap CLI helper.
+RUN npm install -g camsnap \
+    && command -v camsnap
 
 # Install wacli CLI helper from the dedicated Go builder stage.
 COPY --from=wacli-builder /out/wacli /usr/local/bin/wacli
@@ -286,4 +305,4 @@ RUN npm install -g playwright \
     && PLAYWRIGHT_BROWSERS_PATH=/ms-playwright playwright install chromium
 
 # Install Python runtime deps needed by skills.
-RUN pip3 install --break-system-packages pyyaml uv tiktok-uploader
+RUN pip3 install --break-system-packages pyyaml uv tiktok-uploader nano-pdf
