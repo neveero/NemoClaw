@@ -26,6 +26,7 @@
   },
   "dependencies": {
     "js-yaml": "^4.1.1",
+    "json5": "^2.2.3",
     "p-retry": "^4.6.2",
     "yaml": "^2.8.3"
   },
@@ -58,8 +59,8 @@
     "@j178/prek": "^0.3.6",
     "@types/node": "^25.5.2",
     "@typescript-eslint/parser": "^8.58.1",
-    "ajv": "^8.17.0",
     "@vitest/coverage-v8": "^4.1.0",
+    "ajv": "^8.17.0",
     "eslint": "^10.1.0",
     "execa": "^9.6.1",
     "prettier": "^3.8.1",
