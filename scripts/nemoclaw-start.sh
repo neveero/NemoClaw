@@ -327,7 +327,8 @@ _SKILL_ENV_SNIPPET=""
 
 hydrate_skill_env() {
   local raw
-  raw="$(python3 - "$_SKILL_ENV_B64" <<'PY'
+  raw="$(
+    python3 - "$_SKILL_ENV_B64" <<'PY'
 import base64
 import json
 import sys
@@ -349,7 +350,7 @@ for k, v in data.items():
         continue
     print(f"{k}\t{v}")
 PY
-)"
+  )"
 
   if [ -z "$raw" ]; then
     return 0
