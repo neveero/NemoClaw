@@ -238,6 +238,10 @@ RUN npm install -g gifgrep \
 RUN npm install -g camsnap \
     && command -v camsnap
 
+# Install goplaces CLI helper.
+RUN npm install -g goplaces \
+    && command -v goplaces
+
 # Install wacli CLI helper from the dedicated Go builder stage.
 COPY --from=wacli-builder /out/wacli /usr/local/bin/wacli
 RUN command -v wacli
