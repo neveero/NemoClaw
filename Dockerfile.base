@@ -1,4 +1,5 @@
 # NemoClaw sandbox base image — expensive, rarely-changing layers.
+# hadolint global ignore=DL3008,DL3016,DL3013,DL3042,DL3059
 #
 # Contains: node:22-slim, apt packages, gosu, user/group setup,
 # .openclaw directory structure, OpenClaw CLI, and PyYAML.
@@ -69,6 +70,10 @@ RUN (apt-get remove --purge -y gcc gcc-12 g++ g++-12 cpp cpp-12 make \
         python3-pip \
         python3-venv \
         curl \
+        gnupg \
+        golang-go \
+        cargo \
+        rustc \
         git \
         ca-certificates \
         awscli \
@@ -155,9 +160,60 @@ RUN mkdir -p /sandbox/.openclaw-data/agents/main/agent \
     && ln -s /sandbox/.openclaw-data/update-check.json /sandbox/.openclaw/update-check.json \
     && chown -R sandbox:sandbox /sandbox/.openclaw /sandbox/.openclaw-data
 
+# Install 1Password CLI from the official apt repository.
+# hadolint ignore=DL4006
+RUN set -eux; \
+    curl -fsSL https://downloads.1password.com/linux/keys/1password.asc \
+      | gpg --dearmor -o /usr/share/keyrings/1password-archive-keyring.gpg; \
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/1password-archive-keyring.gpg] https://downloads.1password.com/linux/debian/$(dpkg --print-architecture) stable main" \
+      > /etc/apt/sources.list.d/1password.list; \
+    mkdir -p /etc/debsig/policies/AC2D62742012EA22/; \
+    curl -fsSL https://downloads.1password.com/linux/debian/debsig/1password.pol \
+      > /etc/debsig/policies/AC2D62742012EA22/1password.pol; \
+    mkdir -p /usr/share/debsig/keyrings/AC2D62742012EA22; \
+    curl -fsSL https://downloads.1password.com/linux/keys/1password.asc \
+      | gpg --dearmor -o /usr/share/debsig/keyrings/AC2D62742012EA22/debsig.gpg; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends 1password-cli; \
+    rm -rf /var/lib/apt/lists/*; \
+    command -v op
+
+# Install blogwatcher via Go (best effort; upstream currently requires newer Go).
+# hadolint ignore=DL3062
+RUN set -eux; \
+    GOBIN=/usr/local/bin go install github.com/Hyaxia/blogwatcher/cmd/blogwatcher@latest || true; \
+    command -v blogwatcher || true
+
+# Install gogcli via Go.
+# hadolint ignore=DL3062
+RUN set -eux; \
+    GOBIN=/usr/local/bin go install github.com/steipete/gogcli/cmd/gog@latest || true; \
+    command -v gog || true
+
+# Install openhue CLI via Go.
+# hadolint ignore=DL3062
+RUN set -eux; \
+    GOBIN=/usr/local/bin go install github.com/openhue/openhue-cli@latest || true; \
+    command -v openhue || true
+
+# Install wacli via Go.
+# hadolint ignore=DL3062
+RUN set -eux; \
+    GOBIN=/usr/local/bin go install github.com/steipete/wacli/cmd/wacli@latest || true; \
+    command -v wacli || true
+
+# Install himalaya via cargo.
+RUN set -eux; \
+    timeout 180 cargo install himalaya --locked --root /usr/local || true; \
+    command -v himalaya || true
+
 # Install OpenClaw CLI.
 # When bumping the openclaw version, rebuild this base image.
 RUN npm install -g openclaw@2026.3.11
+
+# Install OpenAI Codex CLI.
+RUN npm install -g @openai/codex \
+    && command -v codex
 
 # Install xurl CLI helper.
 RUN npm install -g @xdevplatform/xurl \
@@ -167,12 +223,57 @@ RUN npm install -g @xdevplatform/xurl \
 COPY --from=wacli-builder /out/wacli /usr/local/bin/wacli
 RUN command -v wacli
 
+# Install optional Linux-capable skill CLIs (best effort).
+# Notes:
+# - macOS-only tools (memo, remindctl, grizzly, imsg, things, peekaboo, codexbar) are excluded.
+# - Config/env-only requirements (Slack/Discord/Trello/Notion/etc.) are excluded.
+# - Missing bins are warnings only; build continues if upstream packages are unavailable.
+# - `xurl` stays a required install above; whisper npm installers are intentionally excluded.
+RUN set -eux; \
+    missing=""; \
+    install_candidates() { \
+      bin="$1"; shift; \
+      if command -v "$bin" >/dev/null 2>&1; then return 0; fi; \
+      for pkg in "$@"; do \
+        npm install -g "$pkg" >/dev/null 2>&1 || true; \
+        if command -v "$bin" >/dev/null 2>&1; then return 0; fi; \
+      done; \
+      missing="${missing} ${bin}"; \
+    }; \
+    install_candidates op @1password/op op; \
+    install_candidates blu blu blucli; \
+    install_candidates camsnap camsnap; \
+    install_candidates eightctl eightctl; \
+    install_candidates gifgrep gifgrep; \
+    install_candidates gog gog; \
+    install_candidates himalaya himalaya; \
+    install_candidates nano-pdf nano-pdf; \
+    install_candidates obsidian-cli obsidian-cli; \
+    install_candidates openhue openhue; \
+    install_candidates oracle @steipete/oracle oracle; \
+    install_candidates ordercli ordercli; \
+    install_candidates sag sag; \
+    install_candidates songsee songsee; \
+    install_candidates sonos sonos sonoscli; \
+    install_candidates summarize summarize; \
+    install_candidates spogo spogo spotify_player; \
+    install_candidates wacli wacli; \
+    if [ -n "${missing# }" ]; then \
+      echo "Optional Linux skill binaries missing:${missing}" >&2; \
+    fi
+
 # Install MCPorter CLI.
 RUN npm install -g mcporter
 
 # Install ClawHub CLI and alias `clawdhub` -> `clawhub`.
 RUN npm install -g clawhub || true \
     && if command -v clawhub >/dev/null 2>&1; then ln -sf /usr/local/bin/clawhub /usr/local/bin/clawdhub; fi
+
+# Preinstall api-gateway skill (best effort) so rebuilt sandboxes start with it available.
+RUN set -eux; \
+    if command -v npx >/dev/null 2>&1; then \
+      gosu sandbox env HOME=/sandbox bash -lc 'cd /sandbox && npx -y clawhub install api-gateway || true'; \
+    fi
 
 # Install Agent Browser CLI (fallback shim may be added in runtime image).
 RUN npm install -g agent-browser || true
