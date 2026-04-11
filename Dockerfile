@@ -82,7 +82,7 @@ USER sandbox
 # Build args (NEMOCLAW_MODEL, CHAT_UI_URL) customize per deployment.
 # Auth token is generated per build so each image has a unique token.
 RUN python3 -c "\
-import json, os, secrets; \
+import base64, json, os, secrets; \
 from urllib.parse import urlparse; \
 model = os.environ['NEMOCLAW_MODEL']; \
 chat_ui_url = os.environ['CHAT_UI_URL']; \
