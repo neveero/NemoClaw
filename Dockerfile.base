@@ -230,9 +230,9 @@ RUN npm install -g @openai/codex \
 RUN npm install -g @xdevplatform/xurl \
     && command -v xurl
 
-# Install gifgrep CLI helper.
-RUN npm install -g gifgrep \
-    && command -v gifgrep
+# Install gifgrep CLI helper (best effort; package availability can vary).
+RUN npm install -g gifgrep || true \
+    && command -v gifgrep || true
 
 # Install camsnap CLI helper.
 RUN npm install -g camsnap \
