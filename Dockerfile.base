@@ -56,6 +56,7 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends gcc libc6-dev ca-certificates git \
     && rm -rf /var/lib/apt/lists/*
 
+# hadolint ignore=DL3062
 RUN GOBIN=/out CGO_ENABLED=1 go install -tags sqlite_fts5 github.com/steipete/wacli/cmd/wacli@latest
 
 FROM golang:1.25-bookworm AS blogwatcher-builder
@@ -65,7 +66,17 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates git \
     && rm -rf /var/lib/apt/lists/*
 
+# hadolint ignore=DL3062
 RUN GOBIN=/out go install github.com/Hyaxia/blogwatcher/cmd/blogwatcher@latest
+
+FROM golang:1.25-bookworm AS goplaces-builder
+
+# Build the Google Places skill CLI from the upstream Go module.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates git \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN GOBIN=/out go install github.com/steipete/goplaces/cmd/goplaces@v0.3.0
 
 FROM node:22-slim@sha256:4f77a690f2f8946ab16fe1e791a3ac0667ae1c3575c3e4d0d4589e9ed5bfaf3d
 
@@ -210,6 +221,7 @@ RUN set -eux; \
     command -v wacli || true
 
 # Install himalaya via upstream installer (faster/more reliable than cargo here).
+# hadolint ignore=DL4006
 RUN set -eux; \
     curl -sSL https://raw.githubusercontent.com/pimalaya/himalaya/master/install.sh | sh || true; \
     if ! command -v himalaya >/dev/null 2>&1; then \
@@ -237,6 +249,7 @@ RUN npm install -g @xdevplatform/xurl \
     && command -v xurl
 
 # Install gifgrep CLI helper from upstream Go module and ensure bin exists.
+# hadolint ignore=DL3062
 RUN set -eux; \
     GOBIN=/usr/local/bin go install github.com/steipete/gifgrep/cmd/gifgrep@latest || true; \
     if ! command -v gifgrep >/dev/null 2>&1; then \
@@ -251,9 +264,9 @@ RUN set -eux; \
 RUN npm install -g camsnap || true \
     && command -v camsnap || true
 
-# Install goplaces CLI helper (best effort; package availability can vary).
-RUN npm install -g goplaces || true \
-    && command -v goplaces || true
+# Install the Google Places skill CLI from the dedicated Go builder stage.
+COPY --from=goplaces-builder /out/goplaces /usr/local/bin/goplaces
+RUN command -v goplaces
 
 # Install whisper CLI helper with fallbacks; ensure `whisper` bin exists.
 RUN set -eux; \
