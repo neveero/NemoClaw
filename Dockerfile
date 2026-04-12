@@ -23,6 +23,9 @@ FROM ${BASE_IMAGE}
 
 # Base image provides system packages, users/groups, openclaw runtime layout,
 # global tooling (openclaw, playwright, mcporter, etc.), and Python deps.
+# Keep the runtime CLI pinned here too, so a stale cached/published base image
+# cannot silently downgrade OpenClaw and reject newer NemoClaw config shapes.
+RUN npm install -g openclaw@2026.4.11
 
 # Copy built plugin and blueprint into the sandbox
 COPY --from=builder /opt/nemoclaw/dist/ /opt/nemoclaw/dist/
@@ -136,7 +139,7 @@ config = { \
         } \
     }}, \
     'channels': dict({'defaults': {'configWrites': False}}, **channel_cfg), \
-    'messages': {'tts': {'auto': 'inbound', 'provider': 'openai', 'modelOverrides': {'enabled': True}, 'openai': {'apiKey': 'openshell:resolve:env:OPENAI_API_KEY', 'baseUrl': 'https://api.openai.com/v1', 'model': 'gpt-4o-mini-tts', 'voice': 'ballad', 'speed': 1.5}}}, \
+    'messages': {'tts': {'auto': 'inbound', 'provider': 'openai', 'modelOverrides': {'enabled': True}, 'providers': {'openai': {'apiKey': 'openshell:resolve:env:OPENAI_API_KEY', 'baseUrl': 'https://api.openai.com/v1', 'model': 'gpt-4o-mini-tts', 'voice': 'ballad', 'speed': 1.5}}}}, \
     'tools': {'media': {'audio': {'enabled': True, 'maxBytes': 20971520, 'echoTranscript': False, 'models': [{'type': 'cli', 'command': 'whisper', 'args': ['--model', 'base', '--language', 'en', '{{MediaPath}}'], 'timeoutSeconds': 120}]}}}, \
     'gateway': { \
         'mode': 'local', \
@@ -171,7 +174,7 @@ RUN openclaw doctor --fix > /dev/null 2>&1 || true \
 RUN python3 -c "import json, os; \
 path = os.path.expanduser('~/.openclaw/openclaw.json'); \
 config = json.load(open(path)); \
-config.setdefault('messages', {})['tts'] = {'auto': 'inbound', 'provider': 'openai', 'modelOverrides': {'enabled': True}, 'openai': {'apiKey': 'openshell:resolve:env:OPENAI_API_KEY', 'baseUrl': 'https://api.openai.com/v1', 'model': 'gpt-4o-mini-tts', 'voice': 'ballad', 'speed': 1.5}}; \
+config.setdefault('messages', {})['tts'] = {'auto': 'inbound', 'provider': 'openai', 'modelOverrides': {'enabled': True}, 'providers': {'openai': {'apiKey': 'openshell:resolve:env:OPENAI_API_KEY', 'baseUrl': 'https://api.openai.com/v1', 'model': 'gpt-4o-mini-tts', 'voice': 'ballad', 'speed': 1.5}}}; \
 json.dump(config, open(path, 'w'), indent=2); \
 os.chmod(path, 0o600)"
 

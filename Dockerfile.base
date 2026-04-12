@@ -22,7 +22,7 @@
 #   .openclaw dirs      — directory structure + symlinks are dictated by
 #     + symlinks          the OpenClaw CLI layout; new dirs are additive
 #                          (add them here and rebuild)
-#   openclaw CLI        — pinned to exact npm version (e.g., 2026.3.11)
+#   openclaw CLI        — pinned to exact npm version (e.g., 2026.4.11)
 #   pyyaml              — pinned to exact pip version (6.0.3)
 #
 # Nothing here references NemoClaw plugin source, blueprint files,
