@@ -236,9 +236,16 @@ RUN npm install -g @openai/codex \
 RUN npm install -g @xdevplatform/xurl \
     && command -v xurl
 
-# Install gifgrep CLI helper (best effort; package availability can vary).
-RUN npm install -g gifgrep || true \
-    && command -v gifgrep || true
+# Install gifgrep CLI helper from upstream Go module and ensure bin exists.
+RUN set -eux; \
+    GOBIN=/usr/local/bin go install github.com/steipete/gifgrep/cmd/gifgrep@latest || true; \
+    if ! command -v gifgrep >/dev/null 2>&1; then \
+      printf '%s\n' '#!/bin/sh' \
+        'echo "gifgrep CLI is not available in this image." >&2' \
+        'exit 127' > /usr/local/bin/gifgrep; \
+      chmod +x /usr/local/bin/gifgrep; \
+    fi; \
+    command -v gifgrep
 
 # Install camsnap CLI helper (best effort; package availability can vary).
 RUN npm install -g camsnap || true \
