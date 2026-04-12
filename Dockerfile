@@ -134,7 +134,7 @@ config = { \
         } \
     }}, \
     'channels': dict({'defaults': {'configWrites': False}}, **channel_cfg), \
-    'tools': {'media': {'audio': {'enabled': True, 'maxBytes': 20971520, 'echoTranscript': True, 'models': [{'type': 'cli', 'command': 'whisper', 'args': ['--model', 'base', '{{MediaPath}}'], 'timeoutSeconds': 120}]}}}, \
+    'tools': {'media': {'audio': {'enabled': True, 'maxBytes': 20971520, 'echoTranscript': False, 'models': [{'type': 'cli', 'command': 'whisper', 'args': ['--model', 'base', '--language', 'en', '{{MediaPath}}'], 'timeoutSeconds': 120}]}}}, \
     'gateway': { \
         'mode': 'local', \
         'controlUi': { \
