@@ -324,6 +324,8 @@ _SKILL_ENV_B64="${NEMOCLAW_SKILL_ENV_B64:-e30=}"
 _SKILL_ENV_MARKER_BEGIN="# nemoclaw-skill-env begin"
 _SKILL_ENV_MARKER_END="# nemoclaw-skill-env end"
 _SKILL_ENV_SNIPPET=""
+_SKILL_ENV_KEYS_LOADED=()
+echo "[skill-env] runtime payload length=${#_SKILL_ENV_B64}" >&2
 
 hydrate_skill_env() {
   local raw
@@ -360,11 +362,15 @@ PY
   while IFS=$'\t' read -r key value; do
     [ -n "${key:-}" ] || continue
     export "${key}=${value}"
+    _SKILL_ENV_KEYS_LOADED+=("$key")
     snippet_lines+=("export ${key}=$(printf '%q' "$value")")
   done <<<"$raw"
 
   if [ ${#snippet_lines[@]} -gt 0 ]; then
     _SKILL_ENV_SNIPPET="${_SKILL_ENV_MARKER_BEGIN}"$'\n'"$(printf '%s\n' "${snippet_lines[@]}")"$'\n'"${_SKILL_ENV_MARKER_END}"
+    echo "[skill-env] decoded keys: ${_SKILL_ENV_KEYS_LOADED[*]}" >&2
+  else
+    echo "[skill-env] no keys decoded from runtime payload" >&2
   fi
 }
 
