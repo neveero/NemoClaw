@@ -225,7 +225,7 @@ RUN set -eux; \
 
 # Install OpenClaw CLI.
 # When bumping the openclaw version, rebuild this base image.
-RUN npm install -g openclaw@2026.3.31-beta.1
+RUN npm install -g openclaw@2026.4.11
 
 # Install Gemini CLI helper (best effort; package availability can vary).
 RUN npm install -g @google/gemini-cli || true \
