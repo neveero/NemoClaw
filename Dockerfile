@@ -113,6 +113,8 @@ token_keys = {'discord': 'token', 'telegram': 'botToken', 'slack': 'botToken'}; 
 env_keys = {'discord': 'DISCORD_BOT_TOKEN', 'telegram': 'TELEGRAM_BOT_TOKEN', 'slack': 'SLACK_BOT_TOKEN'}; \
 channel_cfg = {ch: {'accounts': {'default': {token_keys[ch]: f'openshell:resolve:env:{env_keys[ch]}', 'enabled': True, **({'groupPolicy': 'open'} if ch == 'telegram' else {}), **({'dmPolicy': 'allowlist', 'allowFrom': allowed_ids[ch]} if ch in allowed_ids and allowed_ids[ch] else {})}}} for ch in msg_channels if ch in token_keys}; \
 channel_cfg['discord'].update({'groupPolicy': 'allowlist', 'guilds': discord_guilds}) if 'discord' in channel_cfg and discord_guilds else None; \
+channel_cfg['telegram'].update({'enabled': True, 'streaming': 'partial', **({'dmPolicy': 'allowlist', 'allowFrom': allowed_ids['telegram'], 'groupPolicy': 'allowlist', 'groupAllowFrom': allowed_ids['telegram']} if allowed_ids.get('telegram') else {'groupPolicy': 'open'})}) if 'telegram' in channel_cfg else None; \
+channel_cfg['telegram']['accounts']['default'].update({'streaming': 'partial', **({'dmPolicy': 'allowlist', 'allowFrom': allowed_ids['telegram'], 'groupPolicy': 'allowlist', 'groupAllowFrom': allowed_ids['telegram']} if allowed_ids.get('telegram') else {'groupPolicy': 'open'})}) if 'telegram' in channel_cfg else None; \
 parsed = urlparse(chat_ui_url); \
 chat_origin = f'{parsed.scheme}://{parsed.netloc}' if parsed.scheme and parsed.netloc else 'http://127.0.0.1:18789'; \
 origins = ['http://127.0.0.1:18789']; \
