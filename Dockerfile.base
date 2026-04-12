@@ -322,10 +322,11 @@ RUN npm install -g mcporter
 RUN npm install -g clawhub || true \
     && if command -v clawhub >/dev/null 2>&1; then ln -sf /usr/local/bin/clawhub /usr/local/bin/clawdhub; fi
 
-# Preinstall api-gateway skill (best effort) so rebuilt sandboxes start with it available.
+# Preinstall selected skills (best effort) so rebuilt sandboxes start with them available.
 RUN set -eux; \
     if command -v npx >/dev/null 2>&1; then \
       gosu sandbox env HOME=/sandbox bash -lc 'cd /sandbox && npx -y clawhub install api-gateway || true'; \
+      gosu sandbox env HOME=/sandbox bash -lc 'cd /sandbox && npx -y clawhub install self-improving || true'; \
     fi
 
 # Install Agent Browser CLI (fallback shim may be added in runtime image).
