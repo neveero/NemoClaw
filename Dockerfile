@@ -134,6 +134,7 @@ config = { \
         } \
     }}, \
     'channels': dict({'defaults': {'configWrites': False}}, **channel_cfg), \
+    'messages': {'tts': {'auto': 'inbound', 'provider': 'openai', 'providers': {'openai': {'apiKey': 'openshell:resolve:env:OPENAI_API_KEY', 'baseUrl': 'https://api.openai.com/v1', 'model': 'gpt-4o-mini-tts', 'voice': 'alloy'}}}}, \
     'tools': {'media': {'audio': {'enabled': True, 'maxBytes': 20971520, 'echoTranscript': False, 'models': [{'type': 'cli', 'command': 'whisper', 'args': ['--model', 'base', '--language', 'en', '{{MediaPath}}'], 'timeoutSeconds': 120}]}}}, \
     'gateway': { \
         'mode': 'local', \
