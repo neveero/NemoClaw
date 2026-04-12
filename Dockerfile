@@ -53,6 +53,15 @@ ARG NEMOCLAW_INFERENCE_API=openai-completions
 ARG NEMOCLAW_INFERENCE_COMPAT_B64=e30=
 ARG NEMOCLAW_WEB_CONFIG_B64=e30=
 ARG NEMOCLAW_SKILL_ENV_B64=e30=
+# Base64-encoded JSON list of messaging channel names to pre-configure
+# (e.g. ["discord","telegram"]). Channels are added with placeholder tokens
+# so the OpenShell provider pipeline can resolve them at runtime.
+ARG NEMOCLAW_MESSAGING_CHANNELS_B64=W10=
+# Base64-encoded JSON map of channel->allowed sender IDs for DM allowlisting
+# (e.g. {"telegram":["123456789"]}). Default: empty map.
+ARG NEMOCLAW_MESSAGING_ALLOWED_IDS_B64=e30=
+# Base64-encoded JSON map of Discord guild configs keyed by server ID.
+ARG NEMOCLAW_DISCORD_GUILDS_B64=e30=
 # Set to "1" to disable device-pairing auth (development/headless only).
 # Default: "0" (device auth enabled — secure by default).
 ARG NEMOCLAW_DISABLE_DEVICE_AUTH=0
@@ -72,6 +81,9 @@ ENV NEMOCLAW_MODEL=${NEMOCLAW_MODEL} \
     NEMOCLAW_INFERENCE_COMPAT_B64=${NEMOCLAW_INFERENCE_COMPAT_B64} \
     NEMOCLAW_WEB_CONFIG_B64=${NEMOCLAW_WEB_CONFIG_B64} \
     NEMOCLAW_SKILL_ENV_B64=${NEMOCLAW_SKILL_ENV_B64} \
+    NEMOCLAW_MESSAGING_CHANNELS_B64=${NEMOCLAW_MESSAGING_CHANNELS_B64} \
+    NEMOCLAW_MESSAGING_ALLOWED_IDS_B64=${NEMOCLAW_MESSAGING_ALLOWED_IDS_B64} \
+    NEMOCLAW_DISCORD_GUILDS_B64=${NEMOCLAW_DISCORD_GUILDS_B64} \
     NEMOCLAW_DISABLE_DEVICE_AUTH=${NEMOCLAW_DISABLE_DEVICE_AUTH}
 
 WORKDIR /sandbox
@@ -94,6 +106,13 @@ inference_base_url = os.environ['NEMOCLAW_INFERENCE_BASE_URL']; \
 inference_api = os.environ['NEMOCLAW_INFERENCE_API']; \
 inference_compat = json.loads(base64.b64decode(os.environ['NEMOCLAW_INFERENCE_COMPAT_B64']).decode('utf-8')); \
 web_config = json.loads(base64.b64decode(os.environ.get('NEMOCLAW_WEB_CONFIG_B64', 'e30=') or 'e30=').decode('utf-8')); \
+msg_channels = json.loads(base64.b64decode(os.environ.get('NEMOCLAW_MESSAGING_CHANNELS_B64', 'W10=') or 'W10=').decode('utf-8')); \
+allowed_ids = json.loads(base64.b64decode(os.environ.get('NEMOCLAW_MESSAGING_ALLOWED_IDS_B64', 'e30=') or 'e30=').decode('utf-8')); \
+discord_guilds = json.loads(base64.b64decode(os.environ.get('NEMOCLAW_DISCORD_GUILDS_B64', 'e30=') or 'e30=').decode('utf-8')); \
+token_keys = {'discord': 'token', 'telegram': 'botToken', 'slack': 'botToken'}; \
+env_keys = {'discord': 'DISCORD_BOT_TOKEN', 'telegram': 'TELEGRAM_BOT_TOKEN', 'slack': 'SLACK_BOT_TOKEN'}; \
+channel_cfg = {ch: {'accounts': {'default': {token_keys[ch]: f'openshell:resolve:env:{env_keys[ch]}', 'enabled': True, **({'groupPolicy': 'open'} if ch == 'telegram' else {}), **({'dmPolicy': 'allowlist', 'allowFrom': allowed_ids[ch]} if ch in allowed_ids and allowed_ids[ch] else {})}}} for ch in msg_channels if ch in token_keys}; \
+channel_cfg['discord'].update({'groupPolicy': 'allowlist', 'guilds': discord_guilds}) if 'discord' in channel_cfg and discord_guilds else None; \
 parsed = urlparse(chat_ui_url); \
 chat_origin = f'{parsed.scheme}://{parsed.netloc}' if parsed.scheme and parsed.netloc else 'http://127.0.0.1:18789'; \
 origins = ['http://127.0.0.1:18789']; \
@@ -114,7 +133,7 @@ config = { \
             'models': [{'id': model, 'name': model, 'reasoning': False, 'input': ['text'], 'cost': {'input': 0, 'output': 0, 'cacheRead': 0, 'cacheWrite': 0}, 'contextWindow': 131072, 'maxTokens': 4096}] \
         } \
     }}, \
-    'channels': {'defaults': {'configWrites': False}}, \
+    'channels': dict({'defaults': {'configWrites': False}}, **channel_cfg), \
     'gateway': { \
         'mode': 'local', \
         'controlUi': { \
