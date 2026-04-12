@@ -69,15 +69,6 @@ RUN apt-get update \
 # hadolint ignore=DL3062
 RUN GOBIN=/out go install github.com/Hyaxia/blogwatcher/cmd/blogwatcher@latest
 
-FROM golang:1.25-bookworm AS goplaces-builder
-
-# Build the Google Places skill CLI from the upstream Go module.
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates git \
-    && rm -rf /var/lib/apt/lists/*
-
-RUN GOBIN=/out go install github.com/steipete/goplaces/cmd/goplaces@v0.3.0
-
 FROM node:22-slim@sha256:4f77a690f2f8946ab16fe1e791a3ac0667ae1c3575c3e4d0d4589e9ed5bfaf3d
 
 ENV DEBIAN_FRONTEND=noninteractive
@@ -264,9 +255,21 @@ RUN set -eux; \
 RUN npm install -g camsnap || true \
     && command -v camsnap || true
 
-# Install the Google Places skill CLI from the dedicated Go builder stage.
-COPY --from=goplaces-builder /out/goplaces /usr/local/bin/goplaces
-RUN command -v goplaces
+# Install the Google Places skill CLI from the pinned upstream release.
+# hadolint ignore=DL4006
+RUN set -eux; \
+    arch="$(dpkg --print-architecture)"; \
+    case "$arch" in \
+      amd64) goplaces_arch="amd64"; goplaces_sha256="cfa78d4d9a362bbc2c3d3ff7777160fb5a5994de7e8521b00481b72d4053b1e7" ;; \
+      arm64) goplaces_arch="arm64"; goplaces_sha256="221c00ff137b4aa76835ded607e46d38a1ec986ca8fbad886430440d67debd1b" ;; \
+      *) echo "Unsupported architecture for goplaces: $arch" >&2; exit 1 ;; \
+    esac; \
+    curl -fsSL -o /tmp/goplaces.tar.gz "https://github.com/steipete/goplaces/releases/download/v0.3.0/goplaces_0.3.0_linux_${goplaces_arch}.tar.gz"; \
+    echo "${goplaces_sha256}  /tmp/goplaces.tar.gz" | sha256sum -c -; \
+    tar -xzf /tmp/goplaces.tar.gz -C /usr/local/bin goplaces; \
+    rm -f /tmp/goplaces.tar.gz; \
+    chmod +x /usr/local/bin/goplaces; \
+    command -v goplaces
 
 # Install whisper CLI helper with fallbacks; ensure `whisper` bin exists.
 RUN set -eux; \
