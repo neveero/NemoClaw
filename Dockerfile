@@ -167,6 +167,14 @@ os.chmod(path, 0o600)"
 RUN openclaw doctor --fix > /dev/null 2>&1 || true \
     && openclaw plugins install /opt/nemoclaw > /dev/null 2>&1 || true
 
+# Re-apply TTS after doctor, which may normalize or strip provider details.
+RUN python3 -c "import json, os; \
+path = os.path.expanduser('~/.openclaw/openclaw.json'); \
+config = json.load(open(path)); \
+config.setdefault('messages', {})['tts'] = {'auto': 'inbound', 'provider': 'openai', 'modelOverrides': {'enabled': True}, 'providers': {'openai': {'apiKey': 'openshell:resolve:env:OPENAI_API_KEY', 'baseUrl': 'https://api.openai.com/v1', 'model': 'gpt-4o-mini-tts', 'voice': 'ballad', 'speed': 1.5}}}; \
+json.dump(config, open(path, 'w'), indent=2); \
+os.chmod(path, 0o600)"
+
 # Lock openclaw.json via DAC: chown to root so the sandbox user cannot modify
 # it at runtime.  This works regardless of Landlock enforcement status.
 # The Landlock policy (/sandbox/.openclaw in read_only) provides defense-in-depth
