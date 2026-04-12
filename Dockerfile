@@ -134,6 +134,7 @@ config = { \
         } \
     }}, \
     'channels': dict({'defaults': {'configWrites': False}}, **channel_cfg), \
+    'tools': {'media': {'audio': {'enabled': True, 'maxBytes': 20971520, 'echoTranscript': True, 'models': [{'provider': 'openai', 'model': 'gpt-4o-mini-transcribe'}, {'type': 'cli', 'command': 'whisper', 'args': ['--model', 'base', '{{MediaPath}}'], 'timeoutSeconds': 45}]}}}, \
     'gateway': { \
         'mode': 'local', \
         'controlUi': { \
@@ -145,20 +146,16 @@ config = { \
         'auth': {'token': secrets.token_hex(32)} \
     } \
 }; \
-config.update({ \
-    'tools': { \
-        'web': { \
-            'search': { \
-                'enabled': True, \
-                'provider': 'brave', \
-                **({'apiKey': web_config.get('apiKey', '')} if web_config.get('apiKey', '') else {}) \
-            }, \
-            'fetch': { \
-                'enabled': bool(web_config.get('fetchEnabled', True)) \
-            } \
+config.setdefault('tools', {}).update({'web': { \
+        'search': { \
+            'enabled': True, \
+            'provider': 'brave', \
+            **({'apiKey': web_config.get('apiKey', '')} if web_config.get('apiKey', '') else {}) \
+        }, \
+        'fetch': { \
+            'enabled': bool(web_config.get('fetchEnabled', True)) \
         } \
-    } \
-} if web_config.get('provider') == 'brave' else {}); \
+    }} if web_config.get('provider') == 'brave' else {}); \
 path = os.path.expanduser('~/.openclaw/openclaw.json'); \
 json.dump(config, open(path, 'w'), indent=2); \
 os.chmod(path, 0o600)"
