@@ -307,11 +307,12 @@ RUN set -eux; \
 COPY --from=wacli-builder /out/wacli /usr/local/bin/wacli
 RUN command -v wacli
 
-# Install optional Linux-capable skill CLIs (best effort).
+# Install Linux-capable skill CLIs that the sandbox expects to have available.
 # Notes:
 # - macOS-only tools (memo, remindctl, grizzly, imsg, things, peekaboo, codexbar) are excluded.
 # - Config/env-only requirements (Slack/Discord/Trello/Notion/etc.) are excluded.
-# - Missing bins are warnings only; build continues if upstream packages are unavailable.
+# - If any of these fail to install, the image build fails instead of silently
+#   shipping an incomplete base image.
 # - `xurl` stays a required install above; whisper npm installers are intentionally excluded.
 RUN set -eux; \
     missing=""; \
@@ -343,7 +344,8 @@ RUN set -eux; \
     install_candidates spogo spogo spotify_player; \
     install_candidates wacli wacli; \
     if [ -n "${missing# }" ]; then \
-      echo "Optional Linux skill binaries missing:${missing}" >&2; \
+      echo "Required Linux skill binaries missing:${missing}" >&2; \
+      exit 1; \
     fi
 
 # Install MCPorter CLI.
