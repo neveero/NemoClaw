@@ -50,6 +50,7 @@
 # ────────────────────────────────────────────────────────────────────────
 
 FROM golang:1.25-bookworm AS wacli-builder
+ARG NEMOCLAW_WACLI_MODE=build
 
 # Build wacli from source for Linux targets.
 RUN apt-get update \
@@ -57,9 +58,19 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 # hadolint ignore=DL3062
-RUN GOBIN=/out CGO_ENABLED=1 go install -tags sqlite_fts5 github.com/steipete/wacli/cmd/wacli@latest
+RUN set -eux; \
+    mkdir -p /out; \
+    if [ "$NEMOCLAW_WACLI_MODE" = "stub" ]; then \
+      printf '%s\n' '#!/bin/sh' \
+        'echo "wacli is not available in this image." >&2' \
+        'exit 127' > /out/wacli; \
+      chmod +x /out/wacli; \
+    else \
+      GOBIN=/out CGO_ENABLED=1 go install -tags sqlite_fts5 github.com/steipete/wacli/cmd/wacli@latest; \
+    fi
 
 FROM golang:1.25-bookworm AS blogwatcher-builder
+ARG NEMOCLAW_BLOGWATCHER_MODE=build
 
 # Build blogwatcher from source for Linux targets.
 RUN apt-get update \
@@ -67,7 +78,16 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 # hadolint ignore=DL3062
-RUN GOBIN=/out go install github.com/Hyaxia/blogwatcher/cmd/blogwatcher@latest
+RUN set -eux; \
+    mkdir -p /out; \
+    if [ "$NEMOCLAW_BLOGWATCHER_MODE" = "stub" ]; then \
+      printf '%s\n' '#!/bin/sh' \
+        'echo "blogwatcher is not available in this image." >&2' \
+        'exit 127' > /out/blogwatcher; \
+      chmod +x /out/blogwatcher; \
+    else \
+      GOBIN=/out go install github.com/Hyaxia/blogwatcher/cmd/blogwatcher@latest; \
+    fi
 
 FROM node:22-slim@sha256:4f77a690f2f8946ab16fe1e791a3ac0667ae1c3575c3e4d0d4589e9ed5bfaf3d
 
@@ -277,7 +297,10 @@ RUN set -eux; \
 
 # Install local Whisper CLI for OpenClaw audio transcription.
 RUN set -eux; \
-    pip3 install --break-system-packages openai-whisper; \
+    pip3 install --break-system-packages --no-cache-dir \
+      --index-url https://download.pytorch.org/whl/cpu \
+      torch; \
+    pip3 install --break-system-packages --no-cache-dir openai-whisper; \
     command -v whisper
 
 # Install wacli CLI helper from the dedicated Go builder stage.

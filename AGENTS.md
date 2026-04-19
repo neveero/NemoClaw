@@ -80,6 +80,28 @@ NemoClaw isolates agents inside OpenShell sandboxes with:
 
 Security-sensitive code paths require extra test coverage.
 
+### Private Base Image Strategy
+
+For faster private deployments, prefer a two-image split:
+
+- **Private base image**: slow-changing tools and runtimes from `Dockerfile.base` such as OpenClaw, ACPX, Codex CLI, AWS CLI, Google Places, Whisper, Playwright/Chromium, system packages, and skill CLIs. This image may be hosted in a private registry such as AWS ECR and reused across rebuilds.
+- **Runtime image**: fast-changing NemoClaw files from `Dockerfile`, including the built plugin, blueprint, startup script, generated `openclaw.json`, model/provider selection, messaging placeholders, and auth token.
+
+Do not bake customer secrets or environment-specific API keys into the private base image. Keep secrets in OpenShell providers, host-side env injection, or narrowly scoped runtime configuration. A private base image is for proprietary operational tooling and cache speed, not secret storage.
+
+For AWS/ECR work, always use an explicit profile flag instead of relying on the default AWS account. The intended local profile name is `nemoclaw-ecr`, with region `eu-west-2`, unless the user states otherwise. Prefer commands shaped like `aws --profile nemoclaw-ecr --region eu-west-2 ...` or scripts that read `NEMOCLAW_AWS_PROFILE`/`NEMOCLAW_AWS_REGION`. Do not set or depend on global `AWS_PROFILE` for this repo because the user's default AWS profile may belong to another project.
+
+When introducing NemoClaw changes into the private base flow:
+
+1. Rebuild the private base only when `Dockerfile.base` or slow dependency pins change.
+2. Tag private bases immutably, for example `sandbox-base:YYYY-MM-DD-acpx`, and update `BASE_IMAGE`/`NEMOCLAW_BASE_IMAGE` to that tag.
+3. Keep the public/default Dockerfiles working without private registry access.
+4. Avoid duplicating expensive installs in the runtime layer once the private base includes them.
+5. Rebuild the runtime image for NemoClaw source/config changes; do not rebuild the base unless the base inputs changed.
+6. On deployment hosts, authenticate Docker to the private registry before any runtime build that uses the private `BASE_IMAGE`.
+
+Private deployment hosts should not store AWS access keys. Keep the concrete ECR token-broker implementation, live endpoint details, and VPS-side pull helpers in the separate private ops repository rather than in this public repo. This public repo may document the env contract for private-base flows, but operational AWS infrastructure should stay private.
+
 ## Code Style and Conventions
 
 ### Commit Messages
