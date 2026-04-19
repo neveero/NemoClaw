@@ -311,13 +311,21 @@ RUN command -v wacli
 # hadolint ignore=DL3062
 RUN set -eux; \
     GOBIN=/usr/local/bin go install github.com/openhue/openhue-cli/cmd/openhue@latest || true; \
-    command -v openhue || true
+    GOBIN=/usr/local/bin go install github.com/openhue/openhue-cli@latest || true; \
+    if ! command -v openhue >/dev/null 2>&1 && command -v openhue-cli >/dev/null 2>&1; then \
+      ln -sf /usr/local/bin/openhue-cli /usr/local/bin/openhue; \
+    fi; \
+    command -v openhue || command -v openhue-cli
 
 # Install Obsidian CLI from source.
 # hadolint ignore=DL3062
 RUN set -eux; \
+    GOBIN=/usr/local/bin go install github.com/Yakitrak/notesmd-cli@latest || true; \
     GOBIN=/usr/local/bin go install github.com/Yakitrak/obsidian-cli@latest || true; \
-    command -v obsidian-cli || true
+    if ! command -v obsidian-cli >/dev/null 2>&1 && command -v notesmd-cli >/dev/null 2>&1; then \
+      ln -sf /usr/local/bin/notesmd-cli /usr/local/bin/obsidian-cli; \
+    fi; \
+    command -v obsidian-cli || command -v notesmd-cli
 
 # Install Sonos CLI from the dedicated npm package.
 RUN npm install -g @svrooij/sonos-cli || true \
