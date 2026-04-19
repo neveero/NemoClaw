@@ -27,6 +27,11 @@ FROM ${BASE_IMAGE}
 # cannot silently downgrade OpenClaw and reject newer NemoClaw config shapes.
 RUN npm install -g openclaw@2026.4.11
 
+# Keep acpx pinned in the runtime layer too, so stale cached base images still
+# include structured ACP orchestration support.
+RUN npm install -g acpx@0.3.1 \
+    && command -v acpx
+
 # Copy built plugin and blueprint into the sandbox
 COPY --from=builder /opt/nemoclaw/dist/ /opt/nemoclaw/dist/
 COPY nemoclaw/openclaw.plugin.json /opt/nemoclaw/

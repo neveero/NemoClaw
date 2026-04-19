@@ -235,6 +235,10 @@ RUN npm install -g @google/gemini-cli || true \
 RUN npm install -g @openai/codex \
     && command -v codex
 
+# Install acpx for structured headless ACP orchestration.
+RUN npm install -g acpx@0.3.1 \
+    && command -v acpx
+
 # Install xurl CLI helper.
 RUN npm install -g @xdevplatform/xurl \
     && command -v xurl
