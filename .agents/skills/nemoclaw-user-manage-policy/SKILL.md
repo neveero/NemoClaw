@@ -137,7 +137,7 @@ To make changes permanent, update the static policy file and re-run setup.
 ## Step 7: Policy Presets
 
 NemoClaw ships preset policy files for common integrations in `nemoclaw-blueprint/policies/presets/`.
-Apply a preset as-is or use it as a starting template for a custom policy.
+Apply a preset through `nemoclaw <sandbox> policy-add`, or use a full policy file as a starting template for a custom policy.
 
 Available presets:
 
@@ -155,13 +155,19 @@ Available presets:
 | `slack` | Slack API and webhooks |
 | `telegram` | Telegram Bot API |
 
-To apply a preset to a running sandbox, pass it as a policy file:
+To apply a full OpenShell policy file to a running sandbox:
 
 ```console
-$ openshell policy set nemoclaw-blueprint/policies/presets/pypi.yaml
+$ openshell policy set --policy nemoclaw-blueprint/policies/telegram.openshell.yaml --wait my-assistant
 ```
 
 To include a preset in the baseline, merge its entries into `openclaw-sandbox.yaml` and re-run `nemoclaw onboard`.
+
+To apply one of the bundled presets through the NemoClaw CLI:
+
+```console
+$ nemoclaw my-assistant policy-add
+```
 
 ## Related Skills
 

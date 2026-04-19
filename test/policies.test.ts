@@ -331,6 +331,23 @@ describe("policies", () => {
       expect(entries).toContain("port: 443");
     });
 
+    it("extracts entries from a full OpenShell policy file", () => {
+      const content = [
+        "version: 1",
+        "",
+        "network_policies:",
+        "  telegram_bot:",
+        "    name: telegram_bot",
+        "    endpoints:",
+        "      - host: api.telegram.org",
+        "        port: 443",
+      ].join("\n");
+      const entries = policies.extractPresetEntries(content);
+      expect(entries).toContain("telegram_bot:");
+      expect(entries).toContain("api.telegram.org");
+      expect(entries).toContain("port: 443");
+    });
+
     it("strips trailing whitespace from extracted entries", () => {
       const content = "network_policies:\n  rule:\n    name: rule\n\n\n";
       const entries = policies.extractPresetEntries(content);
@@ -564,6 +581,17 @@ describe("policies", () => {
           }
         }
       }
+    });
+
+    it("ships a full OpenShell policy file for direct telegram deployment", () => {
+      const content = fs.readFileSync(
+        path.join(REPO_ROOT, "nemoclaw-blueprint", "policies", "telegram.openshell.yaml"),
+        "utf-8",
+      );
+      expect(content).toContain("version: 1");
+      expect(content).toContain("network_policies:");
+      expect(content).toContain("api.telegram.org");
+      expect(content).not.toContain("preset:");
     });
 
     it("every preset has network_policies section", () => {

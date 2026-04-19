@@ -27,12 +27,22 @@ function listPresets() {
     .filter((f) => f.endsWith(".yaml"))
     .map((f) => {
       const content = fs.readFileSync(path.join(PRESETS_DIR, f), "utf-8");
-      const nameMatch = content.match(/^\s*name:\s*(.+)$/m);
-      const descMatch = content.match(/^\s*description:\s*"?([^"]*)"?$/m);
+      const headerSection = content.split(/^\s*network_policies:\s*$/m)[0] || "";
+      const nameMatch = headerSection.match(/^\s*name:\s*(.+)$/m);
+      const descMatch = headerSection.match(/^\s*description:\s*"?([^"]*)"?$/m);
+      const commentMatch = headerSection
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .find((line) => line.startsWith("#") && !/^#\s*SPDX-/i.test(line) && line !== "#");
+      const description = descMatch
+        ? descMatch[1].trim()
+        : commentMatch
+          ? commentMatch.replace(/^#\s?/, "").trim()
+          : "";
       return {
         file: f,
         name: nameMatch ? nameMatch[1].trim() : f.replace(".yaml", ""),
-        description: descMatch ? descMatch[1].trim() : "",
+        description,
       };
     });
 }
@@ -61,15 +71,39 @@ function getPresetEndpoints(content) {
 }
 
 /**
- * Extract just the network_policies entries (indented content under
- * the `network_policies:` key) from a preset file, stripping the
- * `preset:` metadata header.
+ * Extract just the network_policies entries from a preset file.
+ *
+ * Presets can be authored in either of two forms:
+ *   - legacy wrapper format:
+ *       preset:
+ *         name: ...
+ *       network_policies:
+ *         ...
+ *   - full OpenShell policy format:
+ *       version: 1
+ *       network_policies:
+ *         ...
+ *
+ * This helper returns the indented content under `network_policies:`
+ * so the merge code can continue to work regardless of which format
+ * a preset file uses.
  */
 function extractPresetEntries(presetContent) {
   if (!presetContent) return null;
   const npMatch = presetContent.match(/^network_policies:\n([\s\S]*)$/m);
-  if (!npMatch) return null;
-  return npMatch[1].trimEnd();
+  if (npMatch) return npMatch[1].trimEnd();
+
+  try {
+    const parsed = YAML.parse(presetContent);
+    const networkPolicies = parsed?.network_policies;
+    if (networkPolicies && typeof networkPolicies === "object" && !Array.isArray(networkPolicies)) {
+      return YAML.stringify(networkPolicies).trimEnd();
+    }
+  } catch {
+    /* ignored */
+  }
+
+  return null;
 }
 
 /**
