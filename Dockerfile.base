@@ -106,7 +106,6 @@ RUN (apt-get remove --purge -y gcc gcc-12 g++ g++-12 cpp cpp-12 make \
         rustc \
         git \
         ca-certificates \
-        awscli \
         gh \
         jq \
         ripgrep \
