@@ -138,8 +138,9 @@ RUN (apt-get remove --purge -y gcc gcc-12 g++ g++-12 cpp cpp-12 make \
 # Bootstrap pip without relying on Debian's python3-pip/wheel packaging path,
 # which can fail in slim images when dpkg postinst scripts are out of sync.
 RUN set -eux; \
-    python3 -m ensurepip --upgrade || \
-      (curl -fsSL -o /tmp/get-pip.py https://bootstrap.pypa.io/get-pip.py && python3 /tmp/get-pip.py && rm -f /tmp/get-pip.py); \
+    curl -fsSL -o /tmp/get-pip.py https://bootstrap.pypa.io/get-pip.py; \
+    python3 /tmp/get-pip.py --break-system-packages; \
+    rm -f /tmp/get-pip.py; \
     python3 -m pip --version
 
 # gosu for privilege separation (gateway vs sandbox user).
