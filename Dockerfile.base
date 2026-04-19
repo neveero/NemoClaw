@@ -308,23 +308,27 @@ COPY --from=wacli-builder /out/wacli /usr/local/bin/wacli
 RUN command -v wacli
 
 # Install OpenHue CLI from source.
-# hadolint ignore=DL3062
 RUN set -eux; \
-    GOBIN=/usr/local/bin go install github.com/openhue/openhue-cli/cmd/openhue@latest || true; \
-    GOBIN=/usr/local/bin go install github.com/openhue/openhue-cli@latest || true; \
+    asset="openhue_Linux_x86_64.tar.gz"; \
+    tmpdir="$(mktemp -d)"; \
+    gh release download -R openhue/openhue-cli --pattern "$asset" -D "$tmpdir"; \
+    tar -xzf "$tmpdir/$asset" -C /usr/local/bin; \
     if ! command -v openhue >/dev/null 2>&1 && command -v openhue-cli >/dev/null 2>&1; then \
       ln -sf /usr/local/bin/openhue-cli /usr/local/bin/openhue; \
     fi; \
+    rm -rf "$tmpdir"; \
     command -v openhue || command -v openhue-cli
 
 # Install Obsidian CLI from source.
-# hadolint ignore=DL3062
 RUN set -eux; \
-    GOBIN=/usr/local/bin go install github.com/Yakitrak/notesmd-cli@latest || true; \
-    GOBIN=/usr/local/bin go install github.com/Yakitrak/obsidian-cli@latest || true; \
+    asset="notesmd-cli_Linux_x86_64.tar.gz"; \
+    tmpdir="$(mktemp -d)"; \
+    gh release download -R Yakitrak/notesmd-cli --pattern "$asset" -D "$tmpdir"; \
+    tar -xzf "$tmpdir/$asset" -C /usr/local/bin; \
     if ! command -v obsidian-cli >/dev/null 2>&1 && command -v notesmd-cli >/dev/null 2>&1; then \
       ln -sf /usr/local/bin/notesmd-cli /usr/local/bin/obsidian-cli; \
     fi; \
+    rm -rf "$tmpdir"; \
     command -v obsidian-cli || command -v notesmd-cli
 
 # Install Sonos CLI from the dedicated npm package.
@@ -356,8 +360,6 @@ RUN set -eux; \
     install_candidates gifgrep gifgrep; \
     install_candidates gog gog; \
     install_candidates himalaya himalaya; \
-    install_candidates obsidian-cli obsidian-cli; \
-    install_candidates openhue openhue; \
     install_candidates oracle @steipete/oracle oracle; \
     install_candidates ordercli ordercli; \
     install_candidates sag sag; \
