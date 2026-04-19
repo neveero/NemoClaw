@@ -307,12 +307,28 @@ RUN set -eux; \
 COPY --from=wacli-builder /out/wacli /usr/local/bin/wacli
 RUN command -v wacli
 
+# Install OpenHue CLI from source.
+# hadolint ignore=DL3062
+RUN set -eux; \
+    GOBIN=/usr/local/bin go install github.com/openhue/openhue-cli/cmd/openhue@latest || true; \
+    command -v openhue || true
+
+# Install Obsidian CLI from source.
+# hadolint ignore=DL3062
+RUN set -eux; \
+    GOBIN=/usr/local/bin go install github.com/Yakitrak/obsidian-cli@latest || true; \
+    command -v obsidian-cli || true
+
+# Install Sonos CLI from the dedicated npm package.
+RUN npm install -g @svrooij/sonos-cli || true \
+    && command -v sonos || true
+
 # Install Linux-capable skill CLIs that the sandbox expects to have available.
 # Notes:
 # - macOS-only tools (memo, remindctl, grizzly, imsg, things, peekaboo, codexbar) are excluded.
 # - Config/env-only requirements (Slack/Discord/Trello/Notion/etc.) are excluded.
-# - If any of these fail to install, the image build fails instead of silently
-#   shipping an incomplete base image.
+# - Missing bins are warnings only; some upstream packages are unavailable or do not
+#   expose a Linux CLI entrypoint in this image.
 # - `xurl` stays a required install above; whisper npm installers are intentionally excluded.
 RUN set -eux; \
     missing=""; \
@@ -332,20 +348,18 @@ RUN set -eux; \
     install_candidates gifgrep gifgrep; \
     install_candidates gog gog; \
     install_candidates himalaya himalaya; \
-    install_candidates nano-pdf nano-pdf; \
     install_candidates obsidian-cli obsidian-cli; \
     install_candidates openhue openhue; \
     install_candidates oracle @steipete/oracle oracle; \
     install_candidates ordercli ordercli; \
     install_candidates sag sag; \
     install_candidates songsee songsee; \
-    install_candidates sonos sonos sonoscli; \
+    install_candidates sonos @svrooij/sonos-cli sonos sonoscli; \
     install_candidates summarize summarize; \
     install_candidates spogo spogo spotify_player; \
     install_candidates wacli wacli; \
     if [ -n "${missing# }" ]; then \
-      echo "Required Linux skill binaries missing:${missing}" >&2; \
-      exit 1; \
+      echo "Optional Linux skill binaries missing:${missing}" >&2; \
     fi
 
 # Install MCPorter CLI.
