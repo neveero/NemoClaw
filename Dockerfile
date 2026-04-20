@@ -120,13 +120,13 @@ discord_guilds = json.loads(base64.b64decode(os.environ.get('NEMOCLAW_DISCORD_GU
 telegram_ids = [str(v).strip() for v in (allowed_ids.get('telegram') or []) if str(v).strip()]; \
 telegram_dm_ids = [v for v in telegram_ids if not v.startswith('-')]; \
 telegram_group_ids = [v for v in telegram_ids if v.startswith('-')]; \
-telegram_groups = {gid: {'enabled': True, 'replyToMode': 'thread', 'bindings': [{'type': 'acp'}], 'topics': {}} for gid in telegram_group_ids}; \
+telegram_groups = {gid: {} for gid in telegram_group_ids}; \
 token_keys = {'discord': 'token', 'telegram': 'botToken', 'slack': 'botToken'}; \
 env_keys = {'discord': 'DISCORD_BOT_TOKEN', 'telegram': 'TELEGRAM_BOT_TOKEN', 'slack': 'SLACK_BOT_TOKEN'}; \
-channel_cfg = {ch: {'accounts': {'default': {token_keys[ch]: f'openshell:resolve:env:{env_keys[ch]}', 'enabled': True, **({'groupPolicy': 'open'} if ch == 'telegram' else {}), **({'dmPolicy': 'allowlist', 'allowFrom': allowed_ids[ch]} if ch in allowed_ids and allowed_ids[ch] else {})}}} for ch in msg_channels if ch in token_keys}; \
+channel_cfg = {ch: {'accounts': {'default': {token_keys[ch]: f'openshell:resolve:env:{env_keys[ch]}', 'enabled': True, **({'groupPolicy': 'open'} if ch == 'telegram' else {}), **({'dmPolicy': 'allowlist', 'allowFrom': allowed_ids[ch]} if ch in allowed_ids and allowed_ids[ch] and ch != 'telegram' else {})}}} for ch in msg_channels if ch in token_keys}; \
 channel_cfg['discord'].update({'groupPolicy': 'allowlist', 'guilds': discord_guilds}) if 'discord' in channel_cfg and discord_guilds else None; \
-channel_cfg['telegram'].update({'enabled': True, 'streaming': {'mode': 'partial'}, 'replyToMode': 'thread', **({'dmPolicy': 'allowlist', 'allowFrom': telegram_dm_ids} if telegram_dm_ids else {}), **({'groupPolicy': 'allowlist', 'groupAllowFrom': telegram_group_ids, 'groups': telegram_groups} if telegram_group_ids else {'groupPolicy': 'open'})}) if 'telegram' in channel_cfg else None; \
-channel_cfg['telegram']['accounts']['default'].update({'streaming': {'mode': 'partial'}, **({'dmPolicy': 'allowlist', 'allowFrom': telegram_dm_ids} if telegram_dm_ids else {}), **({'groupPolicy': 'allowlist', 'groupAllowFrom': telegram_group_ids} if telegram_group_ids else {'groupPolicy': 'open'})}) if 'telegram' in channel_cfg else None; \
+channel_cfg['telegram'].update({'enabled': True, 'streaming': 'partial', **({'dmPolicy': 'allowlist', 'allowFrom': telegram_dm_ids} if telegram_dm_ids else {}), **({'groupPolicy': 'allowlist', 'groups': telegram_groups} if telegram_group_ids else {'groupPolicy': 'open'})}) if 'telegram' in channel_cfg else None; \
+channel_cfg['telegram']['accounts']['default'].update({'streaming': 'partial', **({'dmPolicy': 'allowlist', 'allowFrom': telegram_dm_ids} if telegram_dm_ids else {}), **({'groupPolicy': 'allowlist'} if telegram_group_ids else {'groupPolicy': 'open'})}) if 'telegram' in channel_cfg else None; \
 parsed = urlparse(chat_ui_url); \
 chat_origin = f'{parsed.scheme}://{parsed.netloc}' if parsed.scheme and parsed.netloc else 'http://127.0.0.1:18789'; \
 origins = ['http://127.0.0.1:18789']; \

@@ -461,7 +461,7 @@ print(account.get('groupPolicy', ''))
     fi
   fi
 
-  # M11e: Interactive Telegram groups get ACP bindings and thread reply mode
+  # M11e: Interactive Telegram groups are explicitly allowlisted in config
   if [ -n "$TELEGRAM_GROUP_IDS" ]; then
     tg_groups_summary=$(echo "$channel_json" | python3 -c '
 import json, sys
@@ -470,24 +470,22 @@ telegram = d.get("telegram", {})
 groups = telegram.get("groups", {})
 out = []
 for gid, cfg in groups.items():
-    bindings = cfg.get("bindings", []) or []
-    binding_types = ",".join(sorted(str(b.get("type", "")) for b in bindings if isinstance(b, dict) and b.get("type")))
-    out.append("%s:%s:%s" % (gid, cfg.get("replyToMode", ""), binding_types))
+    out.append("%s" % gid)
 print(";".join(out))
 ' 2>/dev/null || true)
 
     missing_group=false
     IFS=',' read -ra expected_group_ids <<<"$TELEGRAM_GROUP_IDS"
     for gid in "${expected_group_ids[@]}"; do
-      if ! echo "$tg_groups_summary" | grep -qF "${gid}:thread:acp"; then
+      if ! echo "$tg_groups_summary" | grep -qF "$gid"; then
         missing_group=true
         break
       fi
     done
     if [ "$missing_group" = "false" ]; then
-      pass "M11e: Telegram groups expose ACP thread bindings: $tg_groups_summary"
+      pass "M11e: Telegram groups are allowlisted: $tg_groups_summary"
     else
-      fail "M11e: Telegram groups missing ACP thread binding(s): $tg_groups_summary"
+      fail "M11e: Telegram groups missing allowlist entry(s): $tg_groups_summary"
     fi
   else
     skip "M11e: No interactive Telegram group IDs configured"
