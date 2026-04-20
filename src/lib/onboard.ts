@@ -974,6 +974,10 @@ function patchStagedDockerfile(
   const { providerKey, primaryModelRef, inferenceBaseUrl, inferenceApi, inferenceCompat } =
     getSandboxInferenceConfig(model, provider, preferredInferenceApi);
   let dockerfile = fs.readFileSync(dockerfilePath, "utf8");
+  const sandboxBaseImageEnv = (process.env.NEMOCLAW_BASE_IMAGE || "").trim();
+  if (sandboxBaseImageEnv) {
+    dockerfile = dockerfile.replace(/^ARG BASE_IMAGE=.*$/m, `ARG BASE_IMAGE=${sandboxBaseImageEnv}`);
+  }
   dockerfile = dockerfile.replace(/^ARG NEMOCLAW_MODEL=.*$/m, `ARG NEMOCLAW_MODEL=${model}`);
   dockerfile = dockerfile.replace(
     /^ARG NEMOCLAW_PROVIDER_KEY=.*$/m,
