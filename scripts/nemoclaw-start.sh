@@ -125,23 +125,6 @@ verify_config_integrity() {
   fi
 }
 
-set_config_writes_flag() {
-  local enabled="$1"
-  python3 - "$enabled" <<'PYCFG'
-import json
-import sys
-
-enabled = sys.argv[1] == "1"
-path = "/sandbox/.openclaw/openclaw.json"
-cfg = json.load(open(path))
-channels = cfg.setdefault("channels", {})
-defaults = channels.setdefault("defaults", {})
-defaults["configWrites"] = enabled
-with open(path, "w") as f:
-    json.dump(cfg, f, indent=2)
-PYCFG
-}
-
 apply_runtime_config_mode() {
   if [ "$ALLOW_CONFIG_WRITES" = "1" ]; then
     if [ "$(id -u)" -ne 0 ]; then
@@ -155,7 +138,6 @@ apply_runtime_config_mode() {
     chown sandbox:sandbox /sandbox/.openclaw /sandbox/.openclaw/openclaw.json 2>/dev/null || true
     chmod 755 /sandbox/.openclaw 2>/dev/null || true
     chmod 600 /sandbox/.openclaw/openclaw.json 2>/dev/null || true
-    set_config_writes_flag 1 || true
     rm -f /sandbox/.openclaw/.config-hash
     return 0
   fi
@@ -166,9 +148,8 @@ apply_runtime_config_mode() {
       chattr -i /sandbox/.openclaw 2>/dev/null || true
       chattr -i /sandbox/.openclaw/* 2>/dev/null || true
     fi
-    # Temporarily make file writable so configWrites can be forced off before locking.
+    # Temporarily make file writable before re-locking ownership and DAC mode.
     chmod 600 /sandbox/.openclaw/openclaw.json 2>/dev/null || true
-    set_config_writes_flag 0 || true
     chown root:root /sandbox/.openclaw 2>/dev/null || true
     find /sandbox/.openclaw -mindepth 1 -maxdepth 1 -exec chown -h root:root {} + 2>/dev/null || true
     chmod 1777 /sandbox/.openclaw 2>/dev/null || true

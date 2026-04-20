@@ -125,8 +125,8 @@ token_keys = {'discord': 'token', 'telegram': 'botToken', 'slack': 'botToken'}; 
 env_keys = {'discord': 'DISCORD_BOT_TOKEN', 'telegram': 'TELEGRAM_BOT_TOKEN', 'slack': 'SLACK_BOT_TOKEN'}; \
 channel_cfg = {ch: {'accounts': {'default': {token_keys[ch]: f'openshell:resolve:env:{env_keys[ch]}', 'enabled': True, **({'groupPolicy': 'open'} if ch == 'telegram' else {}), **({'dmPolicy': 'allowlist', 'allowFrom': allowed_ids[ch]} if ch in allowed_ids and allowed_ids[ch] else {})}}} for ch in msg_channels if ch in token_keys}; \
 channel_cfg['discord'].update({'groupPolicy': 'allowlist', 'guilds': discord_guilds}) if 'discord' in channel_cfg and discord_guilds else None; \
-channel_cfg['telegram'].update({'enabled': True, 'streaming': 'partial', 'replyToMode': 'thread', **({'dmPolicy': 'allowlist', 'allowFrom': telegram_dm_ids} if telegram_dm_ids else {}), **({'groupPolicy': 'allowlist', 'groupAllowFrom': telegram_group_ids, 'groups': telegram_groups} if telegram_group_ids else {'groupPolicy': 'open'})}) if 'telegram' in channel_cfg else None; \
-channel_cfg['telegram']['accounts']['default'].update({'streaming': 'partial', **({'dmPolicy': 'allowlist', 'allowFrom': telegram_dm_ids} if telegram_dm_ids else {}), **({'groupPolicy': 'allowlist', 'groupAllowFrom': telegram_group_ids} if telegram_group_ids else {'groupPolicy': 'open'})}) if 'telegram' in channel_cfg else None; \
+channel_cfg['telegram'].update({'enabled': True, 'streaming': {'mode': 'partial'}, 'replyToMode': 'thread', **({'dmPolicy': 'allowlist', 'allowFrom': telegram_dm_ids} if telegram_dm_ids else {}), **({'groupPolicy': 'allowlist', 'groupAllowFrom': telegram_group_ids, 'groups': telegram_groups} if telegram_group_ids else {'groupPolicy': 'open'})}) if 'telegram' in channel_cfg else None; \
+channel_cfg['telegram']['accounts']['default'].update({'streaming': {'mode': 'partial'}, **({'dmPolicy': 'allowlist', 'allowFrom': telegram_dm_ids} if telegram_dm_ids else {}), **({'groupPolicy': 'allowlist', 'groupAllowFrom': telegram_group_ids} if telegram_group_ids else {'groupPolicy': 'open'})}) if 'telegram' in channel_cfg else None; \
 parsed = urlparse(chat_ui_url); \
 chat_origin = f'{parsed.scheme}://{parsed.netloc}' if parsed.scheme and parsed.netloc else 'http://127.0.0.1:18789'; \
 origins = ['http://127.0.0.1:18789']; \
@@ -147,7 +147,7 @@ config = { \
             'models': [{'id': model, 'name': model, 'reasoning': False, 'input': ['text'], 'cost': {'input': 0, 'output': 0, 'cacheRead': 0, 'cacheWrite': 0}, 'contextWindow': 131072, 'maxTokens': 4096}] \
         } \
     }}, \
-    'channels': dict({'defaults': {'configWrites': False}}, **channel_cfg), \
+    'channels': channel_cfg, \
     'messages': {'tts': {'auto': 'inbound', 'provider': 'openai', 'modelOverrides': {'enabled': True}, 'providers': {'openai': {'apiKey': '\${OPENAI_API_KEY}', 'baseUrl': 'https://api.openai.com/v1', 'model': 'gpt-4o-mini-tts', 'voice': 'ballad', 'speed': 1.3}}}}, \
     'tools': {'media': {'audio': {'enabled': True, 'maxBytes': 20971520, 'echoTranscript': False, 'models': [{'type': 'cli', 'command': 'whisper', 'args': ['--model', 'base', '--language', 'en', '{{MediaPath}}'], 'timeoutSeconds': 120}]}}}, \
     'gateway': { \
