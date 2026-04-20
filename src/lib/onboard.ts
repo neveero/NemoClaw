@@ -2575,15 +2575,11 @@ async function createSandbox(
     messagingAllowedIds,
     discordGuilds,
   );
-  // Only pass non-sensitive env vars to the sandbox. Credentials flow through
-  // OpenShell providers — the gateway injects them as placeholders and the L7
-  // proxy rewrites Authorization headers with real secrets at egress.
-  // See: crates/openshell-sandbox/src/secrets.rs (placeholder rewriting),
-  //      crates/openshell-router/src/backend.rs (inference auth injection).
-  const envArgs = [
-    formatEnvAssignment("CHAT_UI_URL", chatUiUrl),
-    formatEnvAssignment("NEMOCLAW_SKILL_ENV_B64", process.env.NEMOCLAW_SKILL_ENV_B64 || ""),
-  ];
+  // Credentials flow through OpenShell providers — the gateway injects
+  // placeholders and resolves them at egress. Sandbox startup config is baked
+  // into the image during patchStagedDockerfile(), so pass nemoclaw-start as a
+  // direct command here. OpenShell 0.0.26 can fall back to the default
+  // `sleep infinity` when the trailing command is wrapped in `env ...`.
   const blockedSandboxEnvNames = new Set([
     // Derived from REMOTE_PROVIDER_CONFIG to prevent drift
     ...Object.values(REMOTE_PROVIDER_CONFIG)
@@ -2609,9 +2605,7 @@ async function createSandbox(
     "create",
     ...createArgs,
     "--",
-    "env",
-    ...envArgs,
-    "nemoclaw-start",
+    "/usr/local/bin/nemoclaw-start",
   ])} 2>&1`;
   const createResult = await streamSandboxCreate(createCommand, sandboxEnv, {
     readyCheck: () => {
