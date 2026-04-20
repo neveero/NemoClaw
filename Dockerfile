@@ -25,7 +25,7 @@ FROM ${BASE_IMAGE}
 # global tooling (openclaw, playwright, mcporter, etc.), and Python deps.
 # Keep the runtime CLI pinned here too, so a stale cached/published base image
 # cannot silently downgrade OpenClaw and reject newer NemoClaw config shapes.
-RUN npm install -g openclaw@2026.4.11
+RUN npm install -g openclaw@2026.4.15
 
 # Keep acpx pinned in the runtime layer too, so stale cached base images still
 # include structured ACP orchestration support.
