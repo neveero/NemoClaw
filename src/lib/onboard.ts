@@ -61,6 +61,7 @@ const {
   planHostRemediation,
 } = require("./preflight");
 const agentOnboard = require("./agent-onboard");
+const agentRuntime = require("./agent-runtime");
 
 const gatewayState = require("./gateway-state");
 const validation = require("./validation");
@@ -467,6 +468,32 @@ function runOpenshell(args, opts = {}) {
 
 function runCaptureOpenshell(args, opts = {}) {
   return runCapture(openshellShellCommand(args), opts);
+}
+
+function runCaptureSandboxExec(sandboxName, args, opts = {}) {
+  return runCaptureOpenshell(["sandbox", "exec", "-n", sandboxName, "--", ...args], opts);
+}
+
+function recoverSandboxGatewayForOnboard(sandboxName) {
+  const agent = agentRuntime.getSessionAgent(sandboxName);
+  const agentScript = agentRuntime.buildRecoveryScript(agent);
+  const script =
+    agentScript ||
+    [
+      "[ -f ~/.bashrc ] && . ~/.bashrc 2>/dev/null;",
+      'if curl -sf --max-time 3 http://127.0.0.1:18789/ > /dev/null 2>&1; then echo ALREADY_RUNNING; exit 0; fi;',
+      'rm -rf /tmp/openclaw-*/gateway.*.lock 2>/dev/null;',
+      'rm -f /tmp/gateway.log /tmp/auto-pair.log;',
+      'touch /tmp/gateway.log; chmod 600 /tmp/gateway.log;',
+      'touch /tmp/auto-pair.log; chmod 600 /tmp/auto-pair.log;',
+      'OPENCLAW="$(command -v openclaw)";',
+      'if [ -z "$OPENCLAW" ]; then echo OPENCLAW_MISSING; exit 1; fi;',
+      'nohup "$OPENCLAW" gateway run > /tmp/gateway.log 2>&1 &',
+      'GPID=$!; sleep 2;',
+      'if kill -0 "$GPID" 2>/dev/null; then echo "GATEWAY_PID=$GPID"; else echo GATEWAY_FAILED; cat /tmp/gateway.log 2>/dev/null | tail -5; fi',
+    ].join(" ");
+  const result = runCaptureSandboxExec(sandboxName, ["bash", "-lc", script], { ignoreError: true });
+  return result || "";
 }
 
 // URL/string utilities — delegated to src/lib/url-utils.ts
@@ -2676,14 +2703,27 @@ async function createSandbox(
   // This prevents port forwards from connecting to a non-existent port
   // or seeing 502/503 errors during initial load.
   console.log("  Waiting for NemoClaw dashboard to become ready...");
+  let dashboardReady = false;
+  let attemptedGatewayRecovery = false;
   for (let i = 0; i < 15; i++) {
-    const readyMatch = runCapture(
-      `openshell sandbox exec ${shellQuote(sandboxName)} curl -sf http://localhost:18789/ 2>/dev/null || echo "no"`,
+    const readyMatch = runCaptureSandboxExec(
+      sandboxName,
+      ["curl", "-sf", "--max-time", "3", "http://localhost:18789/"],
       { ignoreError: true },
     );
-    if (readyMatch && !readyMatch.includes("no")) {
+    if (readyMatch && readyMatch.trim()) {
       console.log("  ✓ Dashboard is live");
+      dashboardReady = true;
       break;
+    }
+    if (!attemptedGatewayRecovery) {
+      console.log("  Dashboard not responding yet — attempting gateway bootstrap inside sandbox...");
+      const recovery = recoverSandboxGatewayForOnboard(sandboxName);
+      if (recovery.trim()) {
+        const recoveryLine = recovery.trim().split(/\r?\n/).filter(Boolean).slice(-1)[0];
+        if (recoveryLine) console.log(`  ${recoveryLine}`);
+      }
+      attemptedGatewayRecovery = true;
     }
     if (i === 14) {
       console.warn("  Dashboard taking longer than expected to start. Continuing...");

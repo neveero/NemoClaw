@@ -1981,7 +1981,7 @@ runner.run = (command, opts = {}) => {
 runner.runCapture = (command) => {
   if (command.includes("'sandbox' 'get' 'my-assistant'")) return "";
   if (command.includes("'sandbox' 'list'")) return "my-assistant Ready";
-  if (command.includes("sandbox exec 'my-assistant' curl -sf http://localhost:18789/")) return "ok";
+  if (command.includes("'sandbox' 'exec' '-n' 'my-assistant' '--' 'curl' '-sf' '--max-time' '3' 'http://localhost:18789/'")) return "ok";
   if (command.includes("'forward' 'list'")) return "18789 -> my-assistant:18789";
   return "";
 };
@@ -2086,7 +2086,7 @@ runner.run = (command, opts = {}) => {
 runner.runCapture = (command) => {
   if (command.includes("'sandbox' 'get' 'my-assistant'")) return "";
   if (command.includes("'sandbox' 'list'")) return "my-assistant Ready";
-  if (command.includes("sandbox exec 'my-assistant' curl -sf http://localhost:18789/")) return "ok";
+  if (command.includes("'sandbox' 'exec' '-n' 'my-assistant' '--' 'curl' '-sf' '--max-time' '3' 'http://localhost:18789/'")) return "ok";
   if (command.includes("'forward' 'list'")) return "18789 -> my-assistant:18789";
   return "";
 };
@@ -3327,7 +3327,7 @@ runner.runCapture = (command) => {
     sandboxListCalls += 1;
     return sandboxListCalls >= 2 ? "my-assistant Ready" : "my-assistant Pending";
   }
-  if (command.includes("sandbox exec 'my-assistant' curl -sf http://localhost:18789/")) return "ok";
+  if (command.includes("'sandbox' 'exec' '-n' 'my-assistant' '--' 'curl' '-sf' '--max-time' '3' 'http://localhost:18789/'")) return "ok";
   if (command.includes("'forward' 'list'")) return "18789 -> my-assistant:18789";
   return "";
 };
@@ -3708,7 +3708,7 @@ runner.run = (command, opts = {}) => {
 runner.runCapture = (command) => {
   if (command.includes("'sandbox' 'get' 'my-assistant'")) return "";
   if (command.includes("'sandbox' 'list'")) return "my-assistant Ready";
-  if (command.includes("sandbox exec 'my-assistant' curl -sf http://localhost:18789/")) return "ok";
+  if (command.includes("'sandbox' 'exec' '-n' 'my-assistant' '--' 'curl' '-sf' '--max-time' '3' 'http://localhost:18789/'")) return "ok";
   if (command.includes("'forward' 'list'")) return "18789 -> my-assistant:18789";
   return "";
 };
@@ -3835,7 +3835,7 @@ runner.run = (command, opts = {}) => {
 runner.runCapture = (command) => {
   if (command.includes("'sandbox' 'get' 'my-assistant'")) return "";
   if (command.includes("'sandbox' 'list'")) return "my-assistant Ready";
-  if (command.includes("sandbox exec 'my-assistant' curl -sf http://localhost:18789/")) return "ok";
+  if (command.includes("'sandbox' 'exec' '-n' 'my-assistant' '--' 'curl' '-sf' '--max-time' '3' 'http://localhost:18789/'")) return "ok";
   if (command.includes("'forward' 'list'")) return "18789 -> my-assistant:18789";
   return "";
 };
@@ -4093,7 +4093,7 @@ runner.run = (command, opts = {}) => {
 runner.runCapture = (command) => {
   if (command.includes("'sandbox' 'get' 'my-assistant'")) return "";
   if (command.includes("'sandbox' 'list'")) return "my-assistant Ready";
-  if (command.includes("sandbox exec 'my-assistant' curl -sf http://localhost:18789/")) return "ok";
+  if (command.includes("'sandbox' 'exec' '-n' 'my-assistant' '--' 'curl' '-sf' '--max-time' '3' 'http://localhost:18789/'")) return "ok";
   if (command.includes("'forward' 'list'")) return "18789 -> my-assistant:18789";
   return "";
 };
