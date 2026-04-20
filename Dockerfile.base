@@ -312,26 +312,41 @@ RUN set -eux; \
 COPY --from=wacli-builder /out/wacli /usr/local/bin/wacli
 RUN command -v wacli
 
-# Install OpenHue CLI from source.
+# Install OpenHue CLI from the GitHub release asset.
 # hadolint ignore=DL4006
-# hadolint ignore=DL3062
 RUN set -eux; \
-    GOBIN=/usr/local/bin go install github.com/openhue/openhue-cli@latest || true; \
-    if ! command -v openhue >/dev/null 2>&1 && command -v openhue-cli >/dev/null 2>&1; then \
+    tmpdir="$(mktemp -d)"; \
+    asset_url="$( \
+      curl -fsSL https://api.github.com/repos/openhue/openhue-cli/releases/latest \
+        | jq -r '.assets[] | select(.name | test("linux.*(x86_64|amd64).*\\.tar\\.gz$"; "i")) | .browser_download_url' \
+        | head -n1 \
+    )"; \
+    test -n "$asset_url"; \
+    curl -fsSL "$asset_url" -o "$tmpdir/openhue.tar.gz"; \
+    tar -xzf "$tmpdir/openhue.tar.gz" -C /usr/local/bin; \
+    rm -rf "$tmpdir"; \
+    if command -v openhue-cli >/dev/null 2>&1 && ! command -v openhue >/dev/null 2>&1; then \
       ln -sf /usr/local/bin/openhue-cli /usr/local/bin/openhue; \
     fi; \
-    command -v openhue || command -v openhue-cli
+    command -v openhue
 
-# Install Obsidian CLI from source.
+# Install Obsidian CLI from the GitHub release asset.
 # hadolint ignore=DL4006
-# hadolint ignore=DL3062
 RUN set -eux; \
-    GOBIN=/usr/local/bin go install github.com/Yakitrak/notesmd-cli@latest || true; \
-    GOBIN=/usr/local/bin go install github.com/Yakitrak/obsidian-cli@latest || true; \
-    if ! command -v obsidian-cli >/dev/null 2>&1 && command -v notesmd-cli >/dev/null 2>&1; then \
+    tmpdir="$(mktemp -d)"; \
+    asset_url="$( \
+      curl -fsSL https://api.github.com/repos/Yakitrak/notesmd-cli/releases/latest \
+        | jq -r '.assets[] | select(.name | test("linux.*(x86_64|amd64).*\\.tar\\.gz$"; "i")) | .browser_download_url' \
+        | head -n1 \
+    )"; \
+    test -n "$asset_url"; \
+    curl -fsSL "$asset_url" -o "$tmpdir/notesmd-cli.tar.gz"; \
+    tar -xzf "$tmpdir/notesmd-cli.tar.gz" -C /usr/local/bin; \
+    rm -rf "$tmpdir"; \
+    if command -v notesmd-cli >/dev/null 2>&1 && ! command -v obsidian-cli >/dev/null 2>&1; then \
       ln -sf /usr/local/bin/notesmd-cli /usr/local/bin/obsidian-cli; \
     fi; \
-    command -v obsidian-cli || command -v notesmd-cli
+    command -v obsidian-cli
 
 # Install Sonos CLI from the dedicated npm package.
 RUN npm install -g @svrooij/sonos-cli || true \
