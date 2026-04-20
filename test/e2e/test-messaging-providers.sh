@@ -94,6 +94,12 @@ SANDBOX_NAME="${NEMOCLAW_SANDBOX_NAME:-e2e-msg-provider}"
 TELEGRAM_TOKEN="${TELEGRAM_BOT_TOKEN:-test-fake-telegram-token-e2e}"
 DISCORD_TOKEN="${DISCORD_BOT_TOKEN:-test-fake-discord-token-e2e}"
 TELEGRAM_IDS="${TELEGRAM_ALLOWED_IDS:-123456789}"
+TELEGRAM_DM_IDS=$(printf '%s
+' "$TELEGRAM_IDS" | tr ',' '
+' | awk 'NF && $0 !~ /^-/' | paste -sd, -)
+TELEGRAM_GROUP_IDS=$(printf '%s
+' "$TELEGRAM_IDS" | tr ',' '
+' | awk 'NF && $0 ~ /^-/' | paste -sd, -)
 export TELEGRAM_BOT_TOKEN="$TELEGRAM_TOKEN"
 export DISCORD_BOT_TOKEN="$DISCORD_TOKEN"
 export TELEGRAM_ALLOWED_IDS="$TELEGRAM_IDS"
@@ -396,7 +402,7 @@ print(account.get('dmPolicy', ''))
     skip "M11b: Telegram dmPolicy not set (channel may not be configured)"
   fi
 
-  # M11c: Telegram allowFrom contains the expected user IDs
+  # M11c: Telegram allowFrom contains expected DM user IDs only
   tg_allow_from=$(echo "$channel_json" | python3 -c "
 import json, sys
 d = json.load(sys.stdin)
@@ -406,26 +412,29 @@ ids = account.get('allowFrom', [])
 print(','.join(str(i) for i in ids))
 " 2>/dev/null || true)
 
-  if [ -n "$tg_allow_from" ]; then
-    # Check that at least one of the configured IDs is present
-    IFS=',' read -ra expected_ids <<<"$TELEGRAM_IDS"
-    found_match=false
-    for eid in "${expected_ids[@]}"; do
-      if echo "$tg_allow_from" | grep -qF "$eid"; then
-        found_match=true
-        break
+  if [ -n "$TELEGRAM_DM_IDS" ]; then
+    if [ -n "$tg_allow_from" ]; then
+      IFS=',' read -ra expected_ids <<<"$TELEGRAM_DM_IDS"
+      found_match=false
+      for eid in "${expected_ids[@]}"; do
+        if echo "$tg_allow_from" | grep -qF "$eid"; then
+          found_match=true
+          break
+        fi
+      done
+      if [ "$found_match" = "true" ]; then
+        pass "M11c: Telegram allowFrom contains expected DM user ID(s): $tg_allow_from"
+      else
+        fail "M11c: Telegram allowFrom ($tg_allow_from) does not contain any expected DM ID ($TELEGRAM_DM_IDS)"
       fi
-    done
-    if [ "$found_match" = "true" ]; then
-      pass "M11c: Telegram allowFrom contains expected user ID(s): $tg_allow_from"
     else
-      fail "M11c: Telegram allowFrom ($tg_allow_from) does not contain any expected ID ($TELEGRAM_IDS)"
+      fail "M11c: Telegram allowFrom missing expected DM ID(s): $TELEGRAM_DM_IDS"
     fi
   else
-    skip "M11c: Telegram allowFrom not set (channel may not be configured)"
+    skip "M11c: No positive Telegram DM IDs configured"
   fi
 
-  # M11d: Telegram groupPolicy defaults to open so group chats are not silently dropped
+  # M11d: Telegram groupPolicy reflects whether interactive groups were configured
   tg_group_policy=$(echo "$channel_json" | python3 -c "
 import json, sys
 d = json.load(sys.stdin)
@@ -434,12 +443,54 @@ account = accounts.get('default') or accounts.get('main') or {}
 print(account.get('groupPolicy', ''))
 " 2>/dev/null || true)
 
-  if [ "$tg_group_policy" = "open" ]; then
-    pass "M11d: Telegram groupPolicy is 'open'"
-  elif [ -n "$tg_group_policy" ]; then
-    fail "M11d: Telegram groupPolicy is '$tg_group_policy' (expected 'open')"
+  if [ -n "$TELEGRAM_GROUP_IDS" ]; then
+    if [ "$tg_group_policy" = "allowlist" ]; then
+      pass "M11d: Telegram groupPolicy is 'allowlist' for configured interactive group IDs"
+    elif [ -n "$tg_group_policy" ]; then
+      fail "M11d: Telegram groupPolicy is '$tg_group_policy' (expected 'allowlist')"
+    else
+      fail "M11d: Telegram groupPolicy missing for configured interactive group IDs"
+    fi
   else
-    skip "M11d: Telegram groupPolicy not set (channel may not be configured)"
+    if [ "$tg_group_policy" = "open" ]; then
+      pass "M11d: Telegram groupPolicy is 'open'"
+    elif [ -n "$tg_group_policy" ]; then
+      fail "M11d: Telegram groupPolicy is '$tg_group_policy' (expected 'open')"
+    else
+      skip "M11d: Telegram groupPolicy not set (channel may not be configured)"
+    fi
+  fi
+
+  # M11e: Interactive Telegram groups get ACP bindings and thread reply mode
+  if [ -n "$TELEGRAM_GROUP_IDS" ]; then
+    tg_groups_summary=$(echo "$channel_json" | python3 -c '
+import json, sys
+d = json.load(sys.stdin)
+telegram = d.get("telegram", {})
+groups = telegram.get("groups", {})
+out = []
+for gid, cfg in groups.items():
+    bindings = cfg.get("bindings", []) or []
+    binding_types = ",".join(sorted(str(b.get("type", "")) for b in bindings if isinstance(b, dict) and b.get("type")))
+    out.append("%s:%s:%s" % (gid, cfg.get("replyToMode", ""), binding_types))
+print(";".join(out))
+' 2>/dev/null || true)
+
+    missing_group=false
+    IFS=',' read -ra expected_group_ids <<<"$TELEGRAM_GROUP_IDS"
+    for gid in "${expected_group_ids[@]}"; do
+      if ! echo "$tg_groups_summary" | grep -qF "${gid}:thread:acp"; then
+        missing_group=true
+        break
+      fi
+    done
+    if [ "$missing_group" = "false" ]; then
+      pass "M11e: Telegram groups expose ACP thread bindings: $tg_groups_summary"
+    else
+      fail "M11e: Telegram groups missing ACP thread binding(s): $tg_groups_summary"
+    fi
+  else
+    skip "M11e: No interactive Telegram group IDs configured"
   fi
 fi
 
