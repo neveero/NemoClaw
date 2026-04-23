@@ -133,6 +133,7 @@ origins = ['http://127.0.0.1:18789']; \
 origins = list(dict.fromkeys(origins + [chat_origin])); \
 config = { \
     'agents': {'defaults': {'model': {'primary': f'inference/{model}'}}}, \
+    'acp': {'enabled': True, 'dispatch': {'enabled': True}}, \
     'models': {'mode': 'merge', 'providers': { \
         'nvidia': { \
             'baseUrl': 'https://inference.local/v1', \
