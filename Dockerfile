@@ -134,6 +134,7 @@ origins = list(dict.fromkeys(origins + [chat_origin])); \
 config = { \
     'agents': {'defaults': {'model': {'primary': f'inference/{model}'}}}, \
     'acp': {'enabled': True, 'dispatch': {'enabled': True}}, \
+    'plugins': {'acpx': {'agents': {'main': {'command': 'npx @zed-industries/codex-acp@^0.9.5'}}}}, \
     'models': {'mode': 'merge', 'providers': { \
         'nvidia': { \
             'baseUrl': 'https://inference.local/v1', \
