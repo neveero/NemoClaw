@@ -186,6 +186,7 @@ RUN python3 -c "import json, os; \
 path = os.path.expanduser('~/.openclaw/openclaw.json'); \
 config = json.load(open(path)); \
 config.setdefault('messages', {})['tts'] = {'auto': 'inbound', 'provider': 'openai', 'modelOverrides': {'enabled': True}, 'providers': {'openai': {'apiKey': '\${OPENAI_API_KEY}', 'baseUrl': 'https://api.openai.com/v1', 'model': 'gpt-4o-mini-tts', 'voice': 'ballad', 'speed': 1.3}}}; \
+config.setdefault('plugins', {}).setdefault('acpx', {})['agents'] = {'main': {'command': 'npx @zed-industries/codex-acp@^0.9.5'}}; \
 json.dump(config, open(path, 'w'), indent=2); \
 os.chmod(path, 0o600)"
 
