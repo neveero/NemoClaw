@@ -38,6 +38,7 @@ import {
   normalizeProviderBaseUrl,
   parsePolicyPresetEnv,
   patchStagedDockerfile,
+  loadTelegramBindingsConfig,
   printSandboxCreateRecoveryHints,
   resolveDashboardForwardTarget,
   summarizeCurlFailure,
@@ -224,6 +225,165 @@ describe("onboard helpers", () => {
         },
       });
     } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+
+  it("loads and normalizes host-side Telegram bindings YAML", () => {
+    const sandboxName = `tg-bindings-${Date.now()}`;
+    const homeDir = fs.mkdtempSync(path.join(os.tmpdir(), "nemoclaw-telegram-bindings-home-"));
+    const configDir = path.join(homeDir, ".nemoclaw", "config", sandboxName);
+    const filePath = path.join(configDir, "telegram-bindings.yaml");
+    fs.mkdirSync(configDir, { recursive: true });
+    fs.writeFileSync(
+      filePath,
+      [
+        "accountId: default",
+        "threadBindings:",
+        "  spawnAcpSessions: true",
+        "groups:",
+        '  - chatId: "-1001234567890"',
+        "    enabled: true",
+        "    topics:",
+        '      - topicId: "42"',
+        "        agentId: codex",
+      ].join("\n"),
+    );
+
+    const originalHome = process.env.HOME;
+    process.env.HOME = homeDir;
+    try {
+      expect(loadTelegramBindingsConfig(sandboxName)).toEqual({
+        accountId: "default",
+        threadBindings: { spawnAcpSessions: true },
+        groups: {
+          "-1001234567890": {
+            enabled: true,
+            topics: {
+              "42": {
+                agentId: "codex",
+              },
+            },
+          },
+        },
+      });
+    } finally {
+      if (originalHome === undefined) {
+        delete process.env.HOME;
+      } else {
+        process.env.HOME = originalHome;
+      }
+      fs.rmSync(homeDir, { recursive: true, force: true });
+    }
+  });
+
+  it("fails closed on malformed Telegram bindings YAML", () => {
+    const sandboxName = `tg-bindings-bad-${Date.now()}`;
+    const homeDir = fs.mkdtempSync(path.join(os.tmpdir(), "nemoclaw-telegram-bindings-bad-home-"));
+    const configDir = path.join(homeDir, ".nemoclaw", "config", sandboxName);
+    const filePath = path.join(configDir, "telegram-bindings.yaml");
+    fs.mkdirSync(configDir, { recursive: true });
+    fs.writeFileSync(filePath, "groups: [\n");
+
+    const originalHome = process.env.HOME;
+    process.env.HOME = homeDir;
+    try {
+      expect(() => loadTelegramBindingsConfig(sandboxName)).toThrow(
+        /Failed to parse Telegram bindings YAML/,
+      );
+    } finally {
+      if (originalHome === undefined) {
+        delete process.env.HOME;
+      } else {
+        process.env.HOME = originalHome;
+      }
+      fs.rmSync(homeDir, { recursive: true, force: true });
+    }
+  });
+
+  it("patches the staged Dockerfile with Telegram bindings from the host YAML", () => {
+    const sandboxName = `tg-bindings-dockerfile-${Date.now()}`;
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "nemoclaw-onboard-dockerfile-telegram-"));
+    const homeDir = fs.mkdtempSync(
+      path.join(os.tmpdir(), "nemoclaw-telegram-bindings-docker-home-"),
+    );
+    const dockerfilePath = path.join(tmpDir, "Dockerfile");
+    const configDir = path.join(homeDir, ".nemoclaw", "config", sandboxName);
+    fs.mkdirSync(configDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(configDir, "telegram-bindings.yaml"),
+      [
+        "accountId: default",
+        "threadBindings:",
+        "  spawnAcpSessions: true",
+        "groups:",
+        '  - chatId: "-1001234567890"',
+        "    topics:",
+        '      - topicId: "42"',
+        "        agentId: codex",
+      ].join("\n"),
+    );
+    fs.writeFileSync(
+      dockerfilePath,
+      [
+        "ARG NEMOCLAW_MODEL=nvidia/nemotron-3-super-120b-a12b",
+        "ARG NEMOCLAW_PROVIDER_KEY=nvidia",
+        "ARG NEMOCLAW_PRIMARY_MODEL_REF=nvidia/nemotron-3-super-120b-a12b",
+        "ARG CHAT_UI_URL=http://127.0.0.1:18789",
+        "ARG NEMOCLAW_INFERENCE_COMPAT_B64=e30=",
+        "ARG NEMOCLAW_WEB_CONFIG_B64=e30=",
+        "ARG NEMOCLAW_MESSAGING_CHANNELS_B64=W10=",
+        "ARG NEMOCLAW_MESSAGING_ALLOWED_IDS_B64=e30=",
+        "ARG NEMOCLAW_DISCORD_GUILDS_B64=e30=",
+        "ARG NEMOCLAW_TELEGRAM_BINDINGS_B64=e30=",
+        "ARG NEMOCLAW_BUILD_ID=default",
+      ].join("\n"),
+    );
+    const originalHome = process.env.HOME;
+    process.env.HOME = homeDir;
+    try {
+      patchStagedDockerfile(
+        dockerfilePath,
+        "gpt-5.4",
+        "http://127.0.0.1:19999",
+        "build-telegram-bindings",
+        "openai-api",
+        null,
+        null,
+        ["telegram"],
+        {},
+        {},
+        sandboxName,
+      );
+      const patched = fs.readFileSync(dockerfilePath, "utf8");
+      const bindingLine = patched
+        .split("\n")
+        .find((line) => line.startsWith("ARG NEMOCLAW_TELEGRAM_BINDINGS_B64="));
+      assert.ok(bindingLine, "expected telegram bindings build arg");
+      const decoded = JSON.parse(
+        Buffer.from(bindingLine.split("=")[1], "base64").toString("utf8"),
+      );
+      assert.deepEqual(decoded, {
+        accountId: "default",
+        threadBindings: { spawnAcpSessions: true },
+        groups: {
+          "-1001234567890": {
+            topics: {
+              "42": {
+                agentId: "codex",
+              },
+            },
+          },
+        },
+      });
+    } finally {
+      if (originalHome === undefined) {
+        delete process.env.HOME;
+      } else {
+        process.env.HOME = originalHome;
+      }
+      fs.rmSync(homeDir, { recursive: true, force: true });
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }
   });

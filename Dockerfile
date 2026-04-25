@@ -76,6 +76,7 @@ ARG NEMOCLAW_MESSAGING_CHANNELS_B64=W10=
 ARG NEMOCLAW_MESSAGING_ALLOWED_IDS_B64=e30=
 # Base64-encoded JSON map of Discord guild configs keyed by server ID.
 ARG NEMOCLAW_DISCORD_GUILDS_B64=e30=
+ARG NEMOCLAW_TELEGRAM_BINDINGS_B64=e30=
 # Set to "1" to disable device-pairing auth (development/headless only).
 # Default: "0" (device auth enabled — secure by default).
 ARG NEMOCLAW_DISABLE_DEVICE_AUTH=0
@@ -98,6 +99,7 @@ ENV NEMOCLAW_MODEL=${NEMOCLAW_MODEL} \
     NEMOCLAW_MESSAGING_CHANNELS_B64=${NEMOCLAW_MESSAGING_CHANNELS_B64} \
     NEMOCLAW_MESSAGING_ALLOWED_IDS_B64=${NEMOCLAW_MESSAGING_ALLOWED_IDS_B64} \
     NEMOCLAW_DISCORD_GUILDS_B64=${NEMOCLAW_DISCORD_GUILDS_B64} \
+    NEMOCLAW_TELEGRAM_BINDINGS_B64=${NEMOCLAW_TELEGRAM_BINDINGS_B64} \
     NEMOCLAW_DISABLE_DEVICE_AUTH=${NEMOCLAW_DISABLE_DEVICE_AUTH}
 
 WORKDIR /sandbox
@@ -186,11 +188,45 @@ os.chmod(path, 0o600)"
 RUN openclaw doctor --fix > /dev/null 2>&1 || true \
     && openclaw plugins install /opt/nemoclaw > /dev/null 2>&1 || true
 
-# Re-apply TTS after doctor, which may normalize or strip provider details.
-RUN python3 -c "import json, os; \
+# Re-apply runtime-sensitive config after doctor, which may normalize or strip
+# provider details from the baked OpenClaw config.
+RUN python3 -c "import base64, json, os; \
 path = os.path.expanduser('~/.openclaw/openclaw.json'); \
 config = json.load(open(path)); \
 config.setdefault('messages', {})['tts'] = {'auto': 'inbound', 'provider': 'openai', 'modelOverrides': {'enabled': True}, 'providers': {'openai': {'apiKey': '\${OPENAI_API_KEY}', 'baseUrl': 'https://api.openai.com/v1', 'model': 'gpt-4o-mini-tts', 'voice': 'ballad', 'speed': 1.3}}}; \
+bindings = json.loads(base64.b64decode(os.environ.get('NEMOCLAW_TELEGRAM_BINDINGS_B64', 'e30=') or 'e30=').decode('utf-8')); \
+channels = config.setdefault('channels', {}); \
+telegram = channels.get('telegram'); \
+account_id = str((bindings or {}).get('accountId') or '').strip(); \
+if isinstance(bindings, dict) and bindings and isinstance(telegram, dict): \
+    accounts = telegram.setdefault('accounts', {}); \
+    if account_id not in accounts and accounts: \
+        first_id = next(iter(accounts)); \
+        if not account_id: account_id = first_id; \
+    if not account_id: account_id = 'default'; \
+    account = accounts.setdefault(account_id, {}); \
+    thread_bindings = bindings.get('threadBindings'); \
+    if isinstance(thread_bindings, dict) and thread_bindings: account['threadBindings'] = thread_bindings; \
+    groups_cfg = bindings.get('groups'); \
+    if isinstance(groups_cfg, dict) and groups_cfg: \
+        groups = account.setdefault('groups', {}); \
+        for chat_id, group_cfg in groups_cfg.items(): \
+            if not isinstance(group_cfg, dict): continue; \
+            existing_group = groups.get(str(chat_id), {}); \
+            merged_group = dict(existing_group) if isinstance(existing_group, dict) else {}; \
+            for key in ('enabled', 'requireMention', 'ingest', 'groupPolicy', 'skills', 'allowFrom', 'systemPrompt', 'disableAudioPreflight', 'errorPolicy', 'errorCooldownMs'): \
+                if key in group_cfg: merged_group[key] = group_cfg[key]; \
+            topics_cfg = group_cfg.get('topics'); \
+            if isinstance(topics_cfg, dict) and topics_cfg: \
+                topics = merged_group.setdefault('topics', {}); \
+                for topic_id, topic_cfg in topics_cfg.items(): \
+                    if not isinstance(topic_cfg, dict): continue; \
+                    existing_topic = topics.get(str(topic_id), {}); \
+                    merged_topic = dict(existing_topic) if isinstance(existing_topic, dict) else {}; \
+                    merged_topic.update(topic_cfg); \
+                    topics[str(topic_id)] = merged_topic; \
+            groups[str(chat_id)] = merged_group; \
+    if account_id != 'default': telegram['defaultAccount'] = account_id; \
 json.dump(config, open(path, 'w'), indent=2); \
 os.chmod(path, 0o600)"
 

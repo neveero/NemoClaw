@@ -440,6 +440,147 @@ function getBlueprintMinOpenshellVersion(rootDir = ROOT) {
   }
 }
 
+
+function normalizeTelegramBindingsTopics(topics, context) {
+  if (topics === undefined) return {};
+  if (!Array.isArray(topics)) {
+    throw new Error(`${context}.topics must be an array`);
+  }
+  const out = {};
+  for (const topic of topics) {
+    if (!topic || typeof topic !== 'object' || Array.isArray(topic)) {
+      throw new Error(`${context}.topics entries must be mappings`);
+    }
+    const topicId = typeof topic.topicId === 'number' ? String(topic.topicId) : String(topic.topicId || '').trim();
+    if (!topicId) throw new Error(`${context}.topics[].topicId is required`);
+    const topicKeys = new Set(['topicId', 'enabled', 'requireMention', 'ingest', 'groupPolicy', 'skills', 'allowFrom', 'systemPrompt', 'disableAudioPreflight', 'agentId', 'errorPolicy', 'errorCooldownMs']);
+    for (const key of Object.keys(topic)) {
+      if (!topicKeys.has(key)) throw new Error(`${context}.topics[].${key} is not supported`);
+    }
+    const normalized = {};
+    for (const key of ['enabled', 'requireMention', 'ingest', 'disableAudioPreflight']) {
+      if (key in topic) {
+        if (typeof topic[key] !== 'boolean') throw new Error(`${context}.topics[].${key} must be boolean`);
+        normalized[key] = topic[key];
+      }
+    }
+    for (const key of ['groupPolicy', 'systemPrompt', 'agentId', 'errorPolicy']) {
+      if (key in topic) {
+        if (typeof topic[key] !== 'string' || !topic[key].trim()) throw new Error(`${context}.topics[].${key} must be a non-empty string`);
+        normalized[key] = topic[key].trim();
+      }
+    }
+    for (const key of ['skills', 'allowFrom']) {
+      if (key in topic) {
+        if (!Array.isArray(topic[key])) throw new Error(`${context}.topics[].${key} must be an array`);
+        normalized[key] = topic[key].map((entry) => String(entry).trim()).filter(Boolean);
+      }
+    }
+    if ('errorCooldownMs' in topic) {
+      if (!Number.isFinite(topic.errorCooldownMs)) throw new Error(`${context}.topics[].errorCooldownMs must be a number`);
+      normalized.errorCooldownMs = Math.max(0, Math.round(topic.errorCooldownMs));
+    }
+    out[topicId] = normalized;
+  }
+  return out;
+}
+
+function loadTelegramBindingsConfig(sandboxName = null) {
+  const explicitPath = (process.env.NEMOCLAW_TELEGRAM_BINDINGS_FILE || '').trim();
+  const defaultSandboxName = String(sandboxName || process.env.NEMOCLAW_SANDBOX_NAME || process.env.NEMOCLAW_SANDBOX || '').trim();
+  const defaultPath = defaultSandboxName
+    ? path.join(os.homedir(), '.nemoclaw', 'config', defaultSandboxName, 'telegram-bindings.yaml')
+    : '';
+  const candidatePath = explicitPath || defaultPath;
+  if (!candidatePath) return null;
+  if (!fs.existsSync(candidatePath)) {
+    if (explicitPath) {
+      throw new Error(`Telegram bindings file not found: ${candidatePath}`);
+    }
+    return null;
+  }
+
+  const YAML = require('yaml');
+  let parsed;
+  try {
+    parsed = YAML.parse(fs.readFileSync(candidatePath, 'utf8'));
+  } catch (err) {
+    throw new Error(`Failed to parse Telegram bindings YAML at ${candidatePath}: ${err.message}`);
+  }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new Error(`Telegram bindings YAML at ${candidatePath} must be a mapping`);
+  }
+
+  const allowedRootKeys = new Set(['accountId', 'threadBindings', 'groups']);
+  for (const key of Object.keys(parsed)) {
+    if (!allowedRootKeys.has(key)) throw new Error(`Telegram bindings root key ${key} is not supported`);
+  }
+
+  const normalized = {};
+  if ('accountId' in parsed) {
+    if (typeof parsed.accountId !== 'string' || !parsed.accountId.trim()) {
+      throw new Error('Telegram bindings accountId must be a non-empty string');
+    }
+    normalized.accountId = parsed.accountId.trim();
+  }
+  if ('threadBindings' in parsed) {
+    if (!parsed.threadBindings || typeof parsed.threadBindings !== 'object' || Array.isArray(parsed.threadBindings)) {
+      throw new Error('Telegram bindings threadBindings must be a mapping');
+    }
+    const allowedThreadKeys = new Set(['spawnAcpSessions', 'spawnSubagentSessions']);
+    const threadBindings = {};
+    for (const key of Object.keys(parsed.threadBindings)) {
+      if (!allowedThreadKeys.has(key)) throw new Error(`Telegram bindings threadBindings.${key} is not supported`);
+      if (typeof parsed.threadBindings[key] !== 'boolean') throw new Error(`Telegram bindings threadBindings.${key} must be boolean`);
+      threadBindings[key] = parsed.threadBindings[key];
+    }
+    if (Object.keys(threadBindings).length > 0) normalized.threadBindings = threadBindings;
+  }
+  if ('groups' in parsed) {
+    if (!Array.isArray(parsed.groups)) throw new Error('Telegram bindings groups must be an array');
+    const groups = {};
+    for (const group of parsed.groups) {
+      if (!group || typeof group !== 'object' || Array.isArray(group)) {
+        throw new Error('Telegram bindings groups entries must be mappings');
+      }
+      const chatId = typeof group.chatId === 'number' ? String(group.chatId) : String(group.chatId || '').trim();
+      if (!chatId) throw new Error('Telegram bindings groups[].chatId is required');
+      const allowedGroupKeys = new Set(['chatId', 'enabled', 'requireMention', 'ingest', 'groupPolicy', 'skills', 'allowFrom', 'systemPrompt', 'disableAudioPreflight', 'errorPolicy', 'errorCooldownMs', 'topics']);
+      for (const key of Object.keys(group)) {
+        if (!allowedGroupKeys.has(key)) throw new Error(`Telegram bindings groups[].${key} is not supported`);
+      }
+      const normalizedGroup = {};
+      for (const key of ['enabled', 'requireMention', 'ingest', 'disableAudioPreflight']) {
+        if (key in group) {
+          if (typeof group[key] !== 'boolean') throw new Error(`Telegram bindings groups[].${key} must be boolean`);
+          normalizedGroup[key] = group[key];
+        }
+      }
+      for (const key of ['groupPolicy', 'systemPrompt', 'errorPolicy']) {
+        if (key in group) {
+          if (typeof group[key] !== 'string' || !group[key].trim()) throw new Error(`Telegram bindings groups[].${key} must be a non-empty string`);
+          normalizedGroup[key] = group[key].trim();
+        }
+      }
+      for (const key of ['skills', 'allowFrom']) {
+        if (key in group) {
+          if (!Array.isArray(group[key])) throw new Error(`Telegram bindings groups[].${key} must be an array`);
+          normalizedGroup[key] = group[key].map((entry) => String(entry).trim()).filter(Boolean);
+        }
+      }
+      if ('errorCooldownMs' in group) {
+        if (!Number.isFinite(group.errorCooldownMs)) throw new Error('Telegram bindings groups[].errorCooldownMs must be a number');
+        normalizedGroup.errorCooldownMs = Math.max(0, Math.round(group.errorCooldownMs));
+      }
+      normalizedGroup.topics = normalizeTelegramBindingsTopics(group.topics, `groups[${chatId}]`);
+      groups[chatId] = normalizedGroup;
+    }
+    if (Object.keys(groups).length > 0) normalized.groups = groups;
+  }
+
+  return Object.keys(normalized).length > 0 ? normalized : null;
+}
+
 function getStableGatewayImageRef(versionOutput = null) {
   const version = getInstalledOpenshellVersion(versionOutput);
   if (!version) return null;
@@ -985,6 +1126,7 @@ function patchStagedDockerfile(
   messagingChannels = [],
   messagingAllowedIds = {},
   discordGuilds = {},
+  sandboxName = null,
 ) {
   const SKILL_ENV_KEYS = [
     "OPENAI_API_KEY",
@@ -1088,6 +1230,13 @@ function patchStagedDockerfile(
     dockerfile = dockerfile.replace(
       /^ARG NEMOCLAW_DISCORD_GUILDS_B64=.*$/m,
       `ARG NEMOCLAW_DISCORD_GUILDS_B64=${encodeDockerJsonArg(discordGuilds)}`,
+    );
+  }
+  const telegramBindings = loadTelegramBindingsConfig(sandboxName);
+  if (telegramBindings) {
+    dockerfile = dockerfile.replace(
+      /^ARG NEMOCLAW_TELEGRAM_BINDINGS_B64=.*$/m,
+      `ARG NEMOCLAW_TELEGRAM_BINDINGS_B64=${encodeDockerJsonArg(telegramBindings)}`,
     );
   }
   fs.writeFileSync(dockerfilePath, dockerfile);
@@ -2601,6 +2750,7 @@ async function createSandbox(
     activeMessagingChannels,
     messagingAllowedIds,
     discordGuilds,
+    sandboxName,
   );
   // Credentials flow through OpenShell providers — the gateway injects
   // placeholders and resolves them at egress. Sandbox startup config is baked
@@ -4878,4 +5028,5 @@ module.exports = {
   shouldIncludeBuildContextPath,
   writeSandboxConfigSyncFile,
   patchStagedDockerfile,
+  loadTelegramBindingsConfig,
 };
