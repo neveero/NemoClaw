@@ -198,8 +198,11 @@ RUN mkdir -p /sandbox/.openclaw-data/agents/main/agent \
     && ln -s /sandbox/.openclaw-data/canvas /sandbox/.openclaw/canvas \
     && ln -s /sandbox/.openclaw-data/cron /sandbox/.openclaw/cron \
     && ln -s /sandbox/.openclaw-data/memory /sandbox/.openclaw/memory \
+    && touch /sandbox/.openclaw/exec-approvals.json \
+    && chmod 644 /sandbox/.openclaw/exec-approvals.json \
     && touch /sandbox/.openclaw-data/update-check.json \
     && ln -s /sandbox/.openclaw-data/update-check.json /sandbox/.openclaw/update-check.json \
+    && chown sandbox:sandbox /sandbox/.openclaw/exec-approvals.json \
     && chown -R sandbox:sandbox /sandbox/.openclaw /sandbox/.openclaw-data
 
 # Install 1Password CLI from the official apt repository.

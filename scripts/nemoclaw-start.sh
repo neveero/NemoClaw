@@ -522,7 +522,8 @@ chown sandbox:sandbox /tmp/auto-pair.log
 chmod 600 /tmp/auto-pair.log
 
 # Verify ALL symlinks in .openclaw point to expected .openclaw-data targets.
-# Dynamic scan so future OpenClaw symlinks are covered automatically.
+# exec-approvals.json is intentionally a regular file so OpenClaw can update
+# approval decisions without following a symlink into writable state.
 for entry in /sandbox/.openclaw/*; do
   [ -L "$entry" ] || continue
   name="$(basename "$entry")"
@@ -533,6 +534,14 @@ for entry in /sandbox/.openclaw/*; do
     exit 1
   fi
 done
+if [ -L /sandbox/.openclaw/exec-approvals.json ]; then
+  echo "[SECURITY] exec-approvals.json must be a regular file, not a symlink" >&2
+  exit 1
+fi
+if [ ! -f /sandbox/.openclaw/exec-approvals.json ]; then
+  echo "[SECURITY] exec-approvals.json missing from /sandbox/.openclaw" >&2
+  exit 1
+fi
 
 # Lock .openclaw directory after symlink validation: set the immutable flag
 # so symlinks cannot be swapped at runtime even if DAC or Landlock are
