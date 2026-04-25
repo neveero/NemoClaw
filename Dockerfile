@@ -32,6 +32,12 @@ RUN npm install -g openclaw@2026.4.15
 RUN npm install -g acpx@0.3.1 \
     && command -v acpx
 
+# The bundled ACPX extension expects its own plugin-local pinned acpx binary
+# for repair/fallback flows in OpenClaw webchat surfaces.
+RUN cd /usr/local/lib/node_modules/openclaw/dist/extensions/acpx \
+    && npm install --omit=dev --no-save acpx@0.5.3 \
+    && test -x /usr/local/lib/node_modules/openclaw/dist/extensions/acpx/node_modules/.bin/acpx
+
 # Copy built plugin and blueprint into the sandbox
 COPY --from=builder /opt/nemoclaw/dist/ /opt/nemoclaw/dist/
 COPY nemoclaw/openclaw.plugin.json /opt/nemoclaw/

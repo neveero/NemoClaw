@@ -15,4 +15,18 @@ describe("OpenClaw ACP Dockerfile config", () => {
       /'acp': \{\s*'enabled': True,\s*'dispatch': \{'enabled': True\}\s*\}/s,
     );
   });
+
+  it("installs the plugin-local ACPX binary expected by the bundled ACPX extension", () => {
+    assert.ok(
+      dockerfile.includes(
+        "RUN cd /usr/local/lib/node_modules/openclaw/dist/extensions/acpx \\",
+      ),
+    );
+    assert.ok(dockerfile.includes("npm install --omit=dev --no-save acpx@0.5.3 \\"));
+    assert.ok(
+      dockerfile.includes(
+        "test -x /usr/local/lib/node_modules/openclaw/dist/extensions/acpx/node_modules/.bin/acpx",
+      ),
+    );
+  });
 });
