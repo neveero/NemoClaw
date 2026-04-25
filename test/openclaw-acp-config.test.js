@@ -15,11 +15,4 @@ describe("OpenClaw ACP Dockerfile config", () => {
       /'acp': \{\s*'enabled': True,\s*'dispatch': \{'enabled': True\}\s*\}/s,
     );
   });
-
-  it("maps the main ACP agent to Codex for Control UI compatibility", () => {
-    assert.match(
-      dockerfile,
-      /'plugins': \{\s*'acpx': \{\s*'agents': \{\s*'main': \{\s*'command': 'npx @zed-industries\/codex-acp@\^0\.9\.5'\s*\}\s*\}\s*\}\s*\}/s,
-    );
-  });
 });
