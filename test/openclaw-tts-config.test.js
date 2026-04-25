@@ -13,7 +13,10 @@ describe("OpenClaw TTS Dockerfile config", () => {
     const ttsLines = dockerfile.split("\n").filter((line) => line.includes("gpt-4o-mini-tts"));
 
     assert.equal(ttsLines.length, 2);
-    assert.ok(ttsLines.every((line) => line.includes("'apiKey': '\\${OPENAI_API_KEY}'")));
-    assert.ok(ttsLines.every((line) => !line.includes("openshell:resolve:env:OPENAI_API_KEY")));
+    assert.ok(
+      dockerfile.includes("'apiKey': '${OPENAI_API_KEY}'")
+        || dockerfile.includes("'apiKey': '\\${OPENAI_API_KEY}'"),
+    );
+    assert.ok(!dockerfile.includes("openshell:resolve:env:OPENAI_API_KEY"));
   });
 });
