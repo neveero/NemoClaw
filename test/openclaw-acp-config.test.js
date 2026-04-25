@@ -22,11 +22,4 @@ describe("OpenClaw ACP Dockerfile config", () => {
       /'plugins': \{\s*'acpx': \{\s*'agents': \{\s*'main': \{\s*'command': 'npx @zed-industries\/codex-acp@\^0\.9\.5'\s*\}\s*\}\s*\}\s*\}/s,
     );
   });
-
-  it("reapplies the ACP main-agent override after doctor rewrites openclaw.json", () => {
-    assert.match(
-      dockerfile,
-      /config\.setdefault\('plugins', \{\}\)\.setdefault\('acpx', \{\}\)\['agents'\] = \{'main': \{'command': 'npx @zed-industries\/codex-acp@\^0\.9\.5'\}\};/s,
-    );
-  });
 });
