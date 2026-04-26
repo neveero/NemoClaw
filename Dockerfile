@@ -180,7 +180,7 @@ config.setdefault('tools', {}).update({'web': { \
             'enabled': bool(web_config.get('fetchEnabled', True)) \
         } \
     }} if web_config.get('provider') == 'brave' else {}); \
-path = os.path.expanduser('~/.openclaw/openclaw.json'); \
+path = '/sandbox/.openclaw/openclaw.json'; \
 json.dump(config, open(path, 'w'), indent=2); \
 os.chmod(path, 0o600)"
 
@@ -195,7 +195,7 @@ import base64
 import json
 import os
 
-path = os.path.expanduser('~/.openclaw/openclaw.json')
+path = '/sandbox/.openclaw/openclaw.json'
 with open(path) as handle:
     config = json.load(handle)
 
