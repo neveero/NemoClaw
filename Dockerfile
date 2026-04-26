@@ -217,6 +217,14 @@ config.setdefault('messages', {})['tts'] = {
 bindings = json.loads(
     base64.b64decode(os.environ.get('NEMOCLAW_TELEGRAM_BINDINGS_B64', 'e30=') or 'e30=').decode('utf-8')
 )
+bindings_path = '/sandbox/.nemoclaw/runtime-config/telegram-bindings.json'
+os.makedirs(os.path.dirname(bindings_path), exist_ok=True)
+if isinstance(bindings, dict) and bindings:
+    with open(bindings_path, 'w') as handle:
+        json.dump(bindings, handle, indent=2)
+    os.chmod(bindings_path, 0o444)
+elif os.path.exists(bindings_path):
+    os.remove(bindings_path)
 channels = config.setdefault('channels', {})
 telegram = channels.get('telegram')
 account_id = str((bindings or {}).get('accountId') or '').strip()

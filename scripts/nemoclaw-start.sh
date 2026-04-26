@@ -307,6 +307,7 @@ _SKILL_ENV_MARKER_END="# nemoclaw-skill-env end"
 _SKILL_ENV_SNIPPET=""
 _SKILL_ENV_KEYS_LOADED=()
 _TELEGRAM_BINDINGS_B64="${NEMOCLAW_TELEGRAM_BINDINGS_B64:-e30=}"
+_TELEGRAM_BINDINGS_FILE="/sandbox/.nemoclaw/runtime-config/telegram-bindings.json"
 echo "[skill-env] runtime payload length=${#_SKILL_ENV_B64}" >&2
 
 hydrate_skill_env() {
@@ -357,18 +358,28 @@ PY
 }
 
 apply_telegram_bindings_runtime() {
-  python3 - "$_TELEGRAM_BINDINGS_B64" <<'PY'
+  python3 - "$_TELEGRAM_BINDINGS_B64" "$_TELEGRAM_BINDINGS_FILE" <<'PY'
 import base64
 import json
+import os
 import sys
 
 path = "/sandbox/.openclaw/openclaw.json"
 payload = (sys.argv[1] or "e30=").strip()
+bindings_file = (sys.argv[2] or "").strip()
 
-try:
-    bindings = json.loads(base64.b64decode(payload).decode("utf-8")) if payload else {}
-except Exception:
-    bindings = {}
+bindings = {}
+if bindings_file and os.path.exists(bindings_file):
+    try:
+        with open(bindings_file) as handle:
+            bindings = json.load(handle)
+    except Exception:
+        bindings = {}
+elif payload:
+    try:
+        bindings = json.loads(base64.b64decode(payload).decode("utf-8"))
+    except Exception:
+        bindings = {}
 
 if not isinstance(bindings, dict) or not bindings:
     raise SystemExit(0)

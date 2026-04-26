@@ -28,6 +28,7 @@ describe("exec approvals layout", () => {
     const script = fs.readFileSync(path.join(repoRoot, "scripts", "nemoclaw-start.sh"), "utf8");
 
     expect(script).toContain('_TELEGRAM_BINDINGS_B64="${NEMOCLAW_TELEGRAM_BINDINGS_B64:-e30=}"');
+    expect(script).toContain('_TELEGRAM_BINDINGS_FILE="/sandbox/.nemoclaw/runtime-config/telegram-bindings.json"');
     expect(script).toContain('path = "/sandbox/.openclaw/openclaw.json"');
     expect(script).toContain('account["threadBindings"] = thread_bindings');
     expect(script).toContain('apply_telegram_bindings_runtime');

@@ -17,6 +17,7 @@ describe("OpenClaw Telegram bindings Dockerfile config", () => {
   it("reapplies Telegram thread bindings after doctor normalization", () => {
     assert.ok(dockerfile.includes("bindings = json.loads("));
     assert.ok(dockerfile.includes("NEMOCLAW_TELEGRAM_BINDINGS_B64"));
+    assert.ok(dockerfile.includes("bindings_path = '/sandbox/.nemoclaw/runtime-config/telegram-bindings.json'"));
     assert.ok(dockerfile.includes("account['threadBindings'] = thread_bindings"));
     assert.ok(dockerfile.includes("groups[str(chat_id)] = merged_group"));
     assert.ok(dockerfile.includes("topics[str(topic_id)] = merged_topic"));
