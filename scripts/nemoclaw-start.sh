@@ -306,6 +306,7 @@ _SKILL_ENV_MARKER_BEGIN="# nemoclaw-skill-env begin"
 _SKILL_ENV_MARKER_END="# nemoclaw-skill-env end"
 _SKILL_ENV_SNIPPET=""
 _SKILL_ENV_KEYS_LOADED=()
+_TELEGRAM_BINDINGS_B64="${NEMOCLAW_TELEGRAM_BINDINGS_B64:-e30=}"
 echo "[skill-env] runtime payload length=${#_SKILL_ENV_B64}" >&2
 
 hydrate_skill_env() {
@@ -353,6 +354,85 @@ PY
   else
     echo "[skill-env] no keys decoded from runtime payload" >&2
   fi
+}
+
+apply_telegram_bindings_runtime() {
+  python3 - "$_TELEGRAM_BINDINGS_B64" <<'PY'
+import base64
+import json
+import sys
+
+path = "/sandbox/.openclaw/openclaw.json"
+payload = (sys.argv[1] or "e30=").strip()
+
+try:
+    bindings = json.loads(base64.b64decode(payload).decode("utf-8")) if payload else {}
+except Exception:
+    bindings = {}
+
+if not isinstance(bindings, dict) or not bindings:
+    raise SystemExit(0)
+
+with open(path) as handle:
+    config = json.load(handle)
+
+channels = config.setdefault("channels", {})
+telegram = channels.get("telegram")
+if not isinstance(telegram, dict):
+    raise SystemExit(0)
+
+account_id = str((bindings or {}).get("accountId") or "").strip()
+accounts = telegram.setdefault("accounts", {})
+if account_id not in accounts and accounts and not account_id:
+    account_id = next(iter(accounts))
+if not account_id:
+    account_id = "default"
+account = accounts.setdefault(account_id, {})
+
+thread_bindings = bindings.get("threadBindings")
+if isinstance(thread_bindings, dict) and thread_bindings:
+    account["threadBindings"] = thread_bindings
+
+groups_cfg = bindings.get("groups")
+if isinstance(groups_cfg, dict) and groups_cfg:
+    groups = account.setdefault("groups", {})
+    for chat_id, group_cfg in groups_cfg.items():
+        if not isinstance(group_cfg, dict):
+            continue
+        existing_group = groups.get(str(chat_id), {})
+        merged_group = dict(existing_group) if isinstance(existing_group, dict) else {}
+        for key in (
+            "enabled",
+            "requireMention",
+            "ingest",
+            "groupPolicy",
+            "skills",
+            "allowFrom",
+            "systemPrompt",
+            "disableAudioPreflight",
+            "errorPolicy",
+            "errorCooldownMs",
+        ):
+            if key in group_cfg:
+                merged_group[key] = group_cfg[key]
+        topics_cfg = group_cfg.get("topics")
+        if isinstance(topics_cfg, dict) and topics_cfg:
+            topics = merged_group.setdefault("topics", {})
+            for topic_id, topic_cfg in topics_cfg.items():
+                if not isinstance(topic_cfg, dict):
+                    continue
+                existing_topic = topics.get(str(topic_id), {})
+                merged_topic = dict(existing_topic) if isinstance(existing_topic, dict) else {}
+                merged_topic.update(topic_cfg)
+                topics[str(topic_id)] = merged_topic
+        groups[str(chat_id)] = merged_group
+
+if account_id != "default":
+    telegram["defaultAccount"] = account_id
+
+with open(path, "w") as handle:
+    json.dump(config, handle, indent=2)
+PY
 }
 
 _write_skill_env_snippet() {
@@ -459,6 +539,7 @@ fi
 
 echo 'Setting up NemoClaw...' >&2
 [ -f .env ] && chmod 600 .env
+apply_telegram_bindings_runtime
 apply_runtime_config_mode
 
 # ── Non-root fallback ──────────────────────────────────────────
